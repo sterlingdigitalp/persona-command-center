@@ -1,0 +1,1970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus Persona Command Center</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --surface: rgba(255, 255, 255, 0.82);
+      --surface-solid: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --soft: #86868b;
+      --line: rgba(0, 0, 0, 0.08);
+      --line-soft: rgba(0, 0, 0, 0.05);
+      --accent: #0071e3;
+      --accent-soft: #e8f2ff;
+      --green: #248a3d;
+      --amber: #b26a00;
+      --red: #d70015;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+      --radius: 18px;
+      --radius-small: 12px;
+      --max: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(0, 113, 227, 0.08), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(100% - 40px, var(--max));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 0 18px;
+      backdrop-filter: blur(24px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1.05;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    }
+
+    .nav button {
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .nav button.active {
+      background: var(--surface-solid);
+      color: var(--text);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
+    }
+
+    .section {
+      display: none;
+      animation: fadeIn 180ms ease-out;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .app.setup-mode .nav {
+      display: none;
+    }
+
+    .app.setup-mode .section:not(#setup) {
+      display: none !important;
+    }
+
+    .setup-card {
+      padding: clamp(24px, 4vw, 42px);
+      margin-top: 20px;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .setup-persona {
+      padding: 20px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius-small);
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: 22px;
+      align-items: stretch;
+      margin: 20px 0 26px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+
+    .signal {
+      padding: clamp(26px, 5vw, 46px);
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--soft);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .signal h2 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(34px, 6vw, 64px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+
+    .signal p {
+      margin: 20px 0 0;
+      max-width: 650px;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 21px);
+      line-height: 1.45;
+    }
+
+    .morning-card {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 28px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .metric:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .metric strong {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .persona-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 22px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      box-shadow: 0 14px 42px rgba(0, 0, 0, 0.045);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .card h3,
+    .card h4,
+    .section-title h2 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      line-height: 1.15;
+    }
+
+    .account,
+    .muted {
+      color: var(--muted);
+    }
+
+    .account {
+      margin-top: 4px;
+      font-size: 14px;
+    }
+
+    .priority {
+      min-width: 64px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #0057b7;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .priority.medium {
+      background: #fff4df;
+      color: var(--amber);
+    }
+
+    .priority.low {
+      background: #edf8f0;
+      color: var(--green);
+    }
+
+    .niche {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .topics {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 0 0 22px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .topics li {
+      position: relative;
+      padding-left: 16px;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .topics li::before {
+      content: "";
+      position: absolute;
+      top: 0.62em;
+      left: 0;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      min-height: 40px;
+      padding: 0 15px;
+      border-radius: 999px;
+      background: var(--text);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .btn.secondary {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text);
+    }
+
+    .btn.link {
+      background: transparent;
+      color: var(--accent);
+      padding: 0;
+      min-height: 0;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin: 34px 0 18px;
+    }
+
+    .section-title h2 {
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+    }
+
+    .section-title p {
+      margin: 8px 0 0;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(310px, 0.42fr);
+      gap: 18px;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .row:last-child {
+      border-bottom: 0;
+    }
+
+    .time {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .row strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+
+    .row span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .status {
+      color: var(--soft);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .quiet-panel {
+      padding: 24px;
+    }
+
+    .quiet-panel h3 {
+      margin: 0 0 10px;
+      font-size: 19px;
+    }
+
+    .quiet-panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .form {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--text);
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(0, 113, 227, 0.45);
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+    }
+
+    .ingestion-hero {
+      padding: clamp(24px, 4vw, 38px);
+      margin-bottom: 18px;
+    }
+
+    .ingestion-hero h2 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1;
+    }
+
+    .ingestion-hero p {
+      max-width: 780px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .window-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .window-card {
+      padding: 26px;
+    }
+
+    .window-card small {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .window-card h3 {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+
+    .window-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .method-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .method-list li {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .method-list li:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .method-list strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .code-note {
+      margin: 18px 0 0;
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.035);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .platform-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .platform-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 180px;
+    }
+
+    .platform-card .mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.05);
+      font-weight: 700;
+    }
+
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 30;
+      max-width: min(360px, calc(100vw - 48px));
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(29, 29, 31, 0.92);
+      color: white;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1000px) {
+      .topbar {
+        position: static;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .nav {
+        overflow-x: auto;
+        justify-content: flex-start;
+      }
+
+      .hero,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .persona-grid,
+      .platform-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .app {
+        width: min(100% - 24px, var(--max));
+        padding-top: 16px;
+      }
+
+      .persona-grid,
+      .platform-grid,
+      .window-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .status {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Nexus</h1>
+        <p>Persona Command Center</p>
+      </div>
+      <nav class="nav" aria-label="Primary">
+        <button class="active" data-section="brief">Daily Brief</button>
+        <button data-section="schedule">Schedule</button>
+        <button data-section="personas">Personas</button>
+        <button data-section="ingestion">Ingestion</button>
+        <button data-section="platforms">Platforms</button>
+      </nav>
+    </header>
+
+    <section id="setup" class="section" aria-labelledby="setup-title">
+      <div class="panel setup-card">
+        <p class="eyebrow">First Run</p>
+        <h2 id="setup-title">Set up your personas</h2>
+        <p class="niche" id="setupMessage">Create four persistent persona lanes before the dashboard opens. These records are saved to SQLite and become the source of truth for editing, Hermes export, and future digests.</p>
+        <div id="setupForm" class="setup-grid"></div>
+        <div class="button-row" style="margin-top: 22px;">
+          <button type="button" class="btn" onclick="initializePersonas()">Save setup</button>
+          <button type="button" class="btn secondary" onclick="reloadPersonas()">Reload</button>
+        </div>
+        <p class="niche" id="setupError"></p>
+      </div>
+    </section>
+
+    <section id="brief" class="section active" aria-labelledby="brief-title">
+      <div class="hero">
+        <div class="panel signal">
+          <p class="eyebrow">Today's Signal</p>
+          <h2 id="brief-title">Four focused angles are ready for morning review.</h2>
+          <p>The overnight scan found durable topics for each persona. The strongest opportunities are grounded in persona-specific searches, watched accounts, regional X trends, and corroborating news signals.</p>
+        </div>
+        <aside class="panel morning-card" aria-label="Morning status">
+          <div class="metric">
+            <strong>7:15 ET</strong>
+            <span>Human review queue target</span>
+          </div>
+          <div class="metric">
+            <strong>4</strong>
+            <span>Persona lanes with current topics</span>
+          </div>
+          <div class="metric">
+            <strong>8-12 ET</strong>
+            <span>Lightweight trend velocity checks</span>
+          </div>
+        </aside>
+      </div>
+
+      <div class="section-title">
+        <div>
+          <h2>Top Signals Today</h2>
+          <p>Prioritized stories from public RSS and news feeds, scored for relevance, freshness, novelty, velocity, and risk.</p>
+        </div>
+      </div>
+      <div class="grid persona-grid" id="topSignals"></div>
+
+      <div class="section-title">
+        <div>
+          <h2>Personas</h2>
+          <p>Each lane keeps the same focused review loop: review signals, generate drafts, then schedule approved work.</p>
+        </div>
+      </div>
+      <div class="grid persona-grid" id="personaCards"></div>
+
+      <div class="section-title">
+        <div>
+          <h2>Signal Explorer</h2>
+          <p>A lightweight list for filtering all collected signals without adding visual noise.</p>
+        </div>
+        <div class="button-row">
+          <select id="signalPersonaFilter" aria-label="Filter signals by persona" onchange="loadExplorerSignals()"></select>
+          <select id="signalStatusFilter" aria-label="Filter signals by status" onchange="loadExplorerSignals()">
+            <option value="">All status</option>
+            <option value="new">New</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="used">Used</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          <select id="signalSortFilter" aria-label="Sort signals" onchange="loadExplorerSignals()">
+            <option value="priority">Priority</option>
+            <option value="freshness">Freshness</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel list" id="signalExplorer"></div>
+      <div class="section-title">
+        <div>
+          <h2>Velocity Alerts</h2>
+          <p>Topics gaining momentum across digest windows.</p>
+        </div>
+      </div>
+      <div class="panel list" id="velocityAlerts"></div>
+      <div class="panel quiet-panel" style="margin-top: 18px;">
+        <h3>Signal History</h3>
+        <div class="list" id="signalHistory"></div>
+      </div>
+    </section>
+
+    <section id="schedule" class="section" aria-labelledby="schedule-title">
+      <div class="section-title">
+        <div>
+          <h2 id="schedule-title">Schedule</h2>
+          <p>A clean queue for drafts, reviews, and scheduled posts. The backend will convert approved drafts into ContentObject records.</p>
+        </div>
+        <button class="btn" onclick="schedulePost()">Schedule post</button>
+      </div>
+
+      <div class="split">
+        <div class="panel list" id="scheduleList"></div>
+        <aside class="panel quiet-panel">
+          <h3>ContentObject stub</h3>
+          <p>Approved drafts should normalize into one scheduling shape before publishing or platform handoff.</p>
+          <pre class="code-note">{
+  id,
+  personaId,
+  platform,
+  body,
+  mediaRefs,
+  hashtags,
+  status,
+  scheduledAt,
+  sourceSignalIds
+}</pre>
+        </aside>
+      </div>
+      <div class="section-title">
+        <div>
+          <h2>Draft Review</h2>
+          <p>Review generated drafts, make small edits, approve, reject, regenerate, or schedule approved work.</p>
+        </div>
+      </div>
+      <div class="grid" id="draftReview"></div>
+    </section>
+
+    <section id="personas" class="section" aria-labelledby="personas-title">
+      <div class="section-title">
+        <div>
+          <h2 id="personas-title">Personas</h2>
+          <p>Four lanes, each with its own niche, account, source queries, and draft tone. Keep the setup small enough to understand at a glance.</p>
+        </div>
+      </div>
+
+      <div class="grid persona-grid" id="personaEditorCards"></div>
+    </section>
+
+    <section id="ingestion" class="section" aria-labelledby="ingestion-title">
+      <div class="panel ingestion-hero">
+        <p class="eyebrow">Ingestion</p>
+        <h2 id="ingestion-title">A quieter pipeline for finding current X topics.</h2>
+        <p>Do not rely only on generic X trending topics. Nexus should blend persona keyword searches, curated account and list monitoring, regional trends when available, news/RSS corroboration, and velocity comparisons against prior snapshots.</p>
+        <div class="button-row" style="margin-top: 22px;">
+          <button class="btn" onclick="runIngestion()">Run ingestion</button>
+          <button class="btn secondary" onclick="showSection('brief')">Return to brief</button>
+        </div>
+        <p id="lastRunIndicator" class="muted" style="margin-top: 16px;">Last run: not yet available</p>
+      </div>
+
+      <div class="grid window-grid">
+        <article class="panel window-card">
+          <small>Before 8am ET</small>
+          <h3>Overnight digest</h3>
+          <p>Collect X/search/news snapshots, cluster early signals, and set the agenda before the review queue opens. This window favors durable topics over momentary noise.</p>
+        </article>
+        <article class="panel window-card">
+          <small>8am-12pm ET</small>
+          <h3>Velocity monitoring</h3>
+          <p>Run lightweight hourly checks to spot topics gaining speed, update scores, and create opportunistic drafts only when the angle is clearly better than the morning plan.</p>
+        </article>
+      </div>
+
+      <div class="section-title">
+        <div>
+          <h2>Pipeline</h2>
+          <p>A simple implementation plan for Hermes and the backend services.</p>
+        </div>
+      </div>
+
+      <div class="split">
+        <div class="panel quiet-panel">
+          <h3>Hybrid gathering strategy</h3>
+          <ul class="method-list">
+            <li><strong>Persona keyword searches</strong> Query X with persona-specific terms, exclusions, and freshness windows.</li>
+            <li><strong>Curated account/list monitoring</strong> Watch accounts that reliably surface domain-specific conversation early.</li>
+            <li><strong>X trends by region/category</strong> Use broader trends as context, not as the primary source of truth.</li>
+            <li><strong>News/RSS fallback</strong> Corroborate topics before drafting, especially for high-risk or fast-moving claims.</li>
+            <li><strong>Velocity comparison</strong> Compare each scan with prior snapshots to separate real movement from ambient chatter.</li>
+          </ul>
+        </div>
+
+        <aside class="panel quiet-panel">
+          <h3>Hermes schedule</h3>
+          <div class="list">
+            <div class="row"><div class="time">05:45</div><div><strong>Collect snapshots</strong><span>X searches, watched lists, trends, news/RSS.</span></div><div class="status">ET</div></div>
+            <div class="row"><div class="time">06:10</div><div><strong>Score and cluster</strong><span>Group signals and calculate relevance, velocity, novelty, and risk.</span></div><div class="status">ET</div></div>
+            <div class="row"><div class="time">06:30</div><div><strong>Draft candidates</strong><span>Generate post options from the strongest Signal objects.</span></div><div class="status">ET</div></div>
+            <div class="row"><div class="time">07:15</div><div><strong>Review ready</strong><span>Queue drafts for human approval.</span></div><div class="status">ET</div></div>
+            <div class="row"><div class="time">08-12</div><div><strong>Hourly checks</strong><span>Lightweight trend velocity monitoring.</span></div><div class="status">ET</div></div>
+            <div class="row"><div class="time">12:05</div><div><strong>Midday summary</strong><span>Opportunistic drafts and brief update.</span></div><div class="status">ET</div></div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="panel quiet-panel" style="margin-top: 18px;">
+        <h3>Signal object</h3>
+        <p>Candidate topics should normalize before scoring, drafting, or scheduling.</p>
+        <pre class="code-note">{
+  id,
+  personaId,
+  topic,
+  source,
+  query,
+  firstSeenAt,
+  lastSeenAt,
+  velocityScore,
+  relevanceScore,
+  noveltyScore,
+  riskScore,
+  suggestedAngle,
+  evidenceUrls
+}</pre>
+      </div>
+      <div class="panel quiet-panel" style="margin-top: 18px;">
+        <h3>Ingestion history</h3>
+        <div class="list" id="ingestionHistory"></div>
+      </div>
+      <div class="panel quiet-panel" style="margin-top: 18px;">
+        <h3>Hermes settings</h3>
+        <div class="form" id="hermesSettings"></div>
+      </div>
+    </section>
+
+    <section id="platforms" class="section" aria-labelledby="platforms-title">
+      <div class="section-title">
+        <div>
+          <h2 id="platforms-title">Platforms</h2>
+          <p>Connections stay quiet until needed. Platform adapters should publish only approved ContentObject records.</p>
+        </div>
+      </div>
+
+      <div class="grid platform-grid">
+        <article class="card platform-card">
+          <div class="mark">X</div>
+          <div>
+            <h3>X</h3>
+            <p class="niche">Primary source for trend discovery and short-form publishing.</p>
+          </div>
+          <span class="status">Configured</span>
+        </article>
+        <article class="card platform-card">
+          <div class="mark">IG</div>
+          <div>
+            <h3>Instagram</h3>
+            <p class="niche">Optional visual adaptation for approved posts and reels concepts.</p>
+          </div>
+          <span class="status">Draft handoff</span>
+        </article>
+        <article class="card platform-card">
+          <div class="mark">TT</div>
+          <div>
+            <h3>TikTok</h3>
+            <p class="niche">Short-form concept queue for topics with clear visual potential.</p>
+          </div>
+          <span class="status">Planned</span>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!--
+    Backend architecture notes:
+    - Hermes cron can run the ingestion pipeline.
+    - Store persona configs in JSON for the prototype or SQLite when multiple snapshots and drafts need local querying.
+    - X searches should be persona-specific and query-driven; generic trends are supplemental context only.
+    - Normalize topic candidates into Signal objects.
+    - Normalize scheduled/approved drafts into ContentObject records.
+    - Keep backend endpoints small and boring so this single-file frontend can be wired later without a framework.
+  -->
+
+  <script>
+    const setupDrafts = Array.from({ length: 4 }, (_, index) => ({
+      label: `Persona ${index + 1}`,
+      provider: index % 2 === 0 ? "news" : "rss"
+    }));
+
+    const fallbackScheduleItems = [
+      { time: "07:15 ET", title: "Review queue opens", detail: "Four persona draft sets ready for human review.", status: "Ready" },
+      { time: "09:00 ET", title: "First post window", detail: "Publish approved high-confidence drafts.", status: "Planned" },
+      { time: "11:00 ET", title: "Velocity check", detail: "Refresh signals and flag only material changes.", status: "Monitoring" },
+      { time: "12:05 ET", title: "Midday update", detail: "Summarize trend movement and draft opportunistic updates.", status: "Pending" }
+    ];
+
+    let personas = [];
+    let signals = [];
+    let explorerSignals = [];
+    let drafts = [];
+    let scheduleItems = [...fallbackScheduleItems];
+    let ingestionRuns = [];
+    let hermesSettings = null;
+    let hermesHealth = null;
+    let hermesMorningDigestLatest = null;
+    let velocityAlerts = [];
+    let backendUnavailable = false;
+    let setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
+    let lastPersonaRequest = null;
+    let lastPersonaResponse = null;
+    let lastPersonaError = null;
+    const personaEditorState = {};
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function priorityClass(priority) {
+      if (priority === "High") return "";
+      if (priority === "Medium") return "medium";
+      return "low";
+    }
+
+    function statusLabel(value) {
+      return String(value || "active")
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function normalizedPlatformStatus(value) {
+      const status = String(value || "active").toLowerCase();
+      return status === "mock" ? "active" : status;
+    }
+
+    function platformStatusOptions(selected) {
+      const current = normalizedPlatformStatus(selected);
+      return ["active", "configured", "draft", "disconnected"].map((status) => (
+        `<option value="${status}" ${status === current ? "selected" : ""}>${statusLabel(status)}</option>`
+      )).join("");
+    }
+
+    function apiUrl(path) {
+      const base = window.PCC_API_BASE || (window.location.protocol === "file:" ? "http://127.0.0.1:3000" : "");
+      return `${base}${path}`;
+    }
+
+    function setAppMode(mode) {
+      document.querySelector(".app")?.classList.toggle("setup-mode", mode !== "dashboard");
+      if (mode === "dashboard") {
+        showSection(document.querySelector(".nav button.active")?.dataset.section || "brief");
+      } else {
+        document.querySelectorAll(".section").forEach((section) => {
+          section.classList.toggle("active", section.id === "setup");
+        });
+      }
+    }
+
+    function renderSetupScreen(message = "") {
+      const setupMessage = document.getElementById("setupMessage");
+      const setupError = document.getElementById("setupError");
+      const form = document.getElementById("setupForm");
+      if (!form) return;
+      setupMessage.textContent = backendUnavailable
+        ? "Backend unavailable. Start the local server to configure personas."
+        : "Create four persistent persona lanes before the dashboard opens. These records are saved to SQLite and become the source of truth for editing, Hermes export, and future digests.";
+      setupError.textContent = message;
+      form.innerHTML = setupDrafts.map((draft, index) => `
+        <article class="setup-persona">
+          <h3>${draft.label}</h3>
+          <div class="form">
+            <label>Persona name<input id="setup-name-${index}" placeholder="Name"></label>
+            <label>X handle<input id="setup-handle-${index}" placeholder="@account"></label>
+            <label>Interest / niche<textarea id="setup-niche-${index}" placeholder="What this persona tracks"></textarea></label>
+            <label>Voice / tone<textarea id="setup-voice-${index}" placeholder="How this persona should sound"></textarea></label>
+            <label>Search term 1<input id="setup-query-${index}-0" placeholder="Search term"></label>
+            <label>Search term 2<input id="setup-query-${index}-1" placeholder="Search term"></label>
+            <label>Search term 3<input id="setup-query-${index}-2" placeholder="Search term"></label>
+            <div class="button-row">
+              <select id="setup-provider-${index}" aria-label="${draft.label} provider">
+                <option value="news" ${draft.provider === "news" ? "selected" : ""}>news</option>
+                <option value="rss" ${draft.provider === "rss" ? "selected" : ""}>rss</option>
+              </select>
+              <input id="setup-weight-${index}" type="number" min="1" max="5" value="3" aria-label="${draft.label} weight" style="max-width: 90px;">
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function readSetupPersonas() {
+      return setupDrafts.map((draft, index) => {
+        const provider = document.getElementById(`setup-provider-${index}`)?.value || "news";
+        const weight = Number(document.getElementById(`setup-weight-${index}`)?.value || 3);
+        return {
+          name: document.getElementById(`setup-name-${index}`)?.value || "",
+          handle: document.getElementById(`setup-handle-${index}`)?.value || "",
+          niche: document.getElementById(`setup-niche-${index}`)?.value || "",
+          voiceTone: document.getElementById(`setup-voice-${index}`)?.value || "",
+          platformStatus: "active",
+          queries: [0, 1, 2].map((queryIndex) => ({
+            query: document.getElementById(`setup-query-${index}-${queryIndex}`)?.value || "",
+            provider,
+            weight,
+            isActive: true
+          }))
+        };
+      });
+    }
+
+    function personaName(personaId) {
+      return personas.find((persona) => persona.id === personaId)?.name || "Persona";
+    }
+
+    function signalListFor(personaId) {
+      return signals
+        .filter((signal) => signal.personaId === personaId && signal.status !== "dismissed")
+        .sort((a, b) => (b.relevanceScore + b.velocityScore) - (a.relevanceScore + a.velocityScore));
+    }
+
+    function priorityForPersona(persona) {
+      const bestScore = Math.max(0, ...signalListFor(persona.id).map((signal) => signal.relevanceScore || 0));
+      if (bestScore >= 82) return "High";
+      if (bestScore >= 68) return "Medium";
+      return persona.priority || "Calm";
+    }
+
+    function topicsForPersona(persona) {
+      const personaTopics = signalListFor(persona.id).slice(0, 3).map((signal) => signal.topic);
+      return personaTopics;
+    }
+
+    function renderPersonaCards() {
+      const cards = personas.map((persona) => {
+        const priority = priorityForPersona(persona);
+        const personaSignals = signalListFor(persona.id).slice(0, 3);
+        const fallbackTopics = topicsForPersona(persona);
+        return `
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <h3>${escapeHtml(persona.name)}</h3>
+                <div class="account">${escapeHtml(persona.account || persona.handle)}</div>
+              </div>
+              <div class="priority ${priorityClass(priority)}">${priority}</div>
+            </div>
+            <p class="niche">${escapeHtml(persona.niche)}</p>
+            <ul class="topics">
+              ${personaSignals.length
+                ? personaSignals.map((signal) => `
+                  <li>
+                    ${escapeHtml(signal.topic)}
+                    <div class="button-row" style="margin-top: 8px;">
+                      <button class="btn link" onclick="markSignalReviewed('${signal.id}')">Reviewed</button>
+                      <button class="btn link" onclick="dismissSignal('${signal.id}')">Dismiss</button>
+                    </div>
+                  </li>`).join("")
+                : `<li>No current signals yet.</li>`}
+            </ul>
+            <div class="button-row">
+              <button class="btn" onclick="generateDrafts('${persona.id}')">Generate drafts</button>
+              <button class="btn link" onclick="reviewDrafts('${persona.id}')">Review drafts</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      document.getElementById("personaCards").innerHTML = cards;
+    }
+
+    function renderTopSignals() {
+      const container = document.getElementById("topSignals");
+      if (!container) return;
+      const top = [...signals].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0)).slice(0, 4);
+      container.innerHTML = top.length ? top.map((signal) => `
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <h3>${escapeHtml(signal.topic)}</h3>
+              <div class="account">${escapeHtml(personaName(signal.personaId))} · ${escapeHtml(signal.generatedBy || signal.sourceProvider || signal.source || "News")} · ${signal.sourceCount || 1} sources</div>
+            </div>
+            <div class="priority ${priorityClass((signal.priorityScore || 0) >= 78 ? "High" : "Medium")}">${signal.priorityScore || 0}</div>
+          </div>
+          <p class="niche">${escapeHtml(signal.suggestedAngle || "")}</p>
+          <div class="button-row">
+            <span class="status">Freshness ${signal.freshnessScore || 0}</span>
+            ${signal.hermesRunType === "morning_digest" ? `<span class="status">Generated by Morning Digest</span>` : ""}
+            <button class="btn link" onclick="markSignalReviewed('${signal.id}')">Reviewed</button>
+            <button class="btn link" onclick="dismissSignal('${signal.id}')">Dismiss</button>
+          </div>
+        </article>
+      `).join("") : `<article class="card"><p class="niche">Run ingestion to collect real public-feed signals.</p></article>`;
+    }
+
+    function renderPersonaEditors() {
+      const providerOptions = (selected) => ["news", "rss"].map((provider) => (
+        `<option value="${provider}" ${provider === selected ? "selected" : ""}>${provider}</option>`
+      )).join("");
+      const cards = personas.map((persona) => {
+        const state = personaEditorState[persona.id] || {};
+        const editing = Boolean(state.editing);
+        const disabled = editing ? "" : "disabled";
+        const queries = persona.queries || [];
+        const draft = editing && state.draft ? state.draft : {
+          name: persona.name,
+          handle: persona.handle || persona.account,
+          niche: persona.niche,
+          voiceTone: persona.voiceTone,
+          platformStatus: persona.platformStatus
+        };
+        return `
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <h3>${escapeHtml(persona.name)}</h3>
+              <div class="account">${escapeHtml(persona.account || persona.handle)}</div>
+            </div>
+            <div class="status">${state.saving ? "Saving" : state.dirty ? "Unsaved" : state.error ? "Error" : state.saved ? "Saved" : editing ? "Editing" : "Ready"}</div>
+          </div>
+          <div class="form">
+            <label>
+              Name
+              <input id="name-${persona.id}" value="${escapeHtml(draft.name || "")}" ${disabled} oninput="markPersonaDirty('${persona.id}')">
+            </label>
+            <label>
+              X account
+              <input id="handle-${persona.id}" value="${escapeHtml(draft.handle || "")}" ${disabled} oninput="markPersonaDirty('${persona.id}')">
+            </label>
+            <label>
+              Interest
+              <textarea id="niche-${persona.id}" ${disabled} oninput="markPersonaDirty('${persona.id}')" aria-label="${escapeHtml(persona.name)} interest">${escapeHtml(draft.niche || "")}</textarea>
+            </label>
+            <label>
+              Voice
+              <textarea id="voice-${persona.id}" ${disabled} oninput="markPersonaDirty('${persona.id}')" aria-label="${escapeHtml(persona.name)} voice">${escapeHtml(draft.voiceTone || "")}</textarea>
+            </label>
+            <label>
+              Platform status
+              <select id="platform-${persona.id}" ${disabled} onchange="markPersonaDirty('${persona.id}')">
+                ${platformStatusOptions(draft.platformStatus)}
+              </select>
+            </label>
+            <div class="button-row">
+              ${editing
+                ? `<button type="button" class="btn secondary" onclick="savePersona('${persona.id}')">Save</button><button type="button" class="btn link" onclick="cancelPersonaEdit('${persona.id}')">Cancel</button>`
+                : `<button type="button" class="btn secondary" onclick="editPersona('${persona.id}')">Edit</button>`}
+            </div>
+            ${state.error ? `<p class="niche">${escapeHtml(state.error)}</p>` : ""}
+            <hr style="border: 0; border-top: 1px solid var(--line); width: 100%;">
+            <h3>Search terms</h3>
+            ${queries.map((query) => `
+              <div class="row" style="align-items: start;">
+                <div class="time">${query.isActive ? "On" : "Off"}</div>
+                <div class="form" style="gap: 8px;">
+                  <input id="query-text-${query.id}" value="${escapeHtml(query.query || "")}" aria-label="Search term">
+                  <div class="button-row">
+                    <select id="query-provider-${query.id}" aria-label="Provider">${providerOptions(query.provider || "news")}</select>
+                    <input id="query-weight-${query.id}" type="number" min="1" max="5" value="${query.weight || 1}" aria-label="Weight" style="max-width: 90px;">
+                  </div>
+                  <div class="button-row">
+                    <button type="button" class="btn link" onclick="savePersonaQuery('${persona.id}', '${query.id}')">Save term</button>
+                    <button type="button" class="btn link" onclick="togglePersonaQuery('${persona.id}', '${query.id}')">${query.isActive ? "Deactivate" : "Activate"}</button>
+                    <button type="button" class="btn link" onclick="deletePersonaQuery('${persona.id}', '${query.id}')">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `).join("") || `<p class="niche">No search terms yet.</p>`}
+            <div class="row" style="align-items: start;">
+              <div class="time">New</div>
+              <div class="form" style="gap: 8px;">
+                <input id="new-query-${persona.id}" placeholder="Add search term" aria-label="Add search term">
+                <div class="button-row">
+                  <select id="new-query-provider-${persona.id}" aria-label="New term provider">${providerOptions("news")}</select>
+                  <input id="new-query-weight-${persona.id}" type="number" min="1" max="5" value="1" aria-label="New term weight" style="max-width: 90px;">
+                  <button type="button" class="btn link" onclick="addPersonaQuery('${persona.id}')">Add term</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+      }).join("");
+
+      document.getElementById("personaEditorCards").innerHTML = cards;
+    }
+
+    function renderSchedule() {
+      const items = scheduleItems.length ? scheduleItems : fallbackScheduleItems;
+      const rows = items.map((item) => `
+        <div class="row">
+          <div class="time">${item.time || formatTime(item.scheduledAt)}</div>
+          <div>
+            <strong>${escapeHtml(item.title || item.platform.toUpperCase() + " scheduled post")}</strong>
+            <span>${escapeHtml(item.detail || item.body)}</span>
+          </div>
+          <div class="status">
+            ${escapeHtml(item.status)}
+            ${item.id && item.status !== "cancelled" ? `<br><button class="btn link" onclick="cancelPost('${item.id}')">Cancel</button>` : ""}
+          </div>
+        </div>
+      `).join("");
+
+      document.getElementById("scheduleList").innerHTML = rows;
+    }
+
+    function renderDraftReview() {
+      const container = document.getElementById("draftReview");
+      if (!container) return;
+      if (!drafts.length) {
+        container.innerHTML = `<article class="card"><p class="niche">No drafts yet. Generate drafts from a persona card after ingestion.</p></article>`;
+        return;
+      }
+
+      container.innerHTML = drafts.slice(0, 8).map((draft) => `
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <h3>${escapeHtml(personaName(draft.personaId))}</h3>
+              <div class="account">${escapeHtml(draft.platform || "x")} · ${escapeHtml(draft.status)}</div>
+            </div>
+          </div>
+          <textarea id="draft-${draft.id}" aria-label="Draft body">${escapeHtml(draft.editedBody || draft.body)}</textarea>
+          <div class="button-row" style="margin-top: 14px;">
+            <button class="btn secondary" onclick="saveDraft('${draft.id}')">Save edit</button>
+            <button class="btn secondary" onclick="approveDraft('${draft.id}')">Approve</button>
+            <button class="btn link" onclick="rejectDraft('${draft.id}')">Reject</button>
+            <button class="btn link" onclick="regenerateDraft('${draft.id}')">Regenerate</button>
+            ${draft.status === "approved" ? `<button class="btn" onclick="schedulePost('${draft.id}')">Schedule</button>` : ""}
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderIngestionRuns() {
+      const lastRun = ingestionRuns[0];
+      const indicator = document.getElementById("lastRunIndicator");
+      if (indicator) {
+        indicator.textContent = lastRun
+          ? `Last Hermes Run: ${lastRun.generatedBy || "Local"} · ${lastRun.runType} · ${lastRun.status} · ${lastRun.signalsCreated} signals · ${formatTime(lastRun.completedAt || lastRun.startedAt)}`
+          : "Last Hermes Run: not yet available";
+      }
+
+      const history = document.getElementById("ingestionHistory");
+      if (!history) return;
+      history.innerHTML = ingestionRuns.slice(0, 6).map((run) => `
+        <div class="row">
+          <div class="time">${formatTime(run.completedAt || run.startedAt)}</div>
+          <div>
+            <strong>${escapeHtml(run.runType)}</strong>
+            <span>${escapeHtml(run.notes || "No notes")}</span>
+          </div>
+          <div class="status">${escapeHtml(run.status)}</div>
+        </div>
+      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No runs yet</strong><span>Run mock ingestion to create the first history record.</span></div><div class="status">Idle</div></div>`;
+    }
+
+    function renderExplorerFilters() {
+      const personaFilter = document.getElementById("signalPersonaFilter");
+      if (!personaFilter) return;
+      const current = personaFilter.value;
+      personaFilter.innerHTML = `<option value="">All personas</option>${personas.map((persona) => `<option value="${persona.id}">${escapeHtml(persona.name)}</option>`).join("")}`;
+      personaFilter.value = current;
+    }
+
+    function renderSignalExplorer() {
+      const container = document.getElementById("signalExplorer");
+      if (!container) return;
+      container.innerHTML = explorerSignals.slice(0, 50).map((signal) => `
+        <div class="row">
+          <div class="time">${signal.priorityScore || 0}</div>
+          <div>
+            <strong>${escapeHtml(signal.topic)}</strong>
+            <span>${escapeHtml(personaName(signal.personaId))} · ${escapeHtml(signal.status)} · ${signal.sourceCount || 1} sources · freshness ${signal.freshnessScore || 0}</span>
+          </div>
+          <div class="status">
+            ${signal.status !== "reviewed" ? `<button class="btn link" onclick="markSignalReviewed('${signal.id}')">Review</button>` : "Reviewed"}
+            <br><button class="btn link" onclick="showSignalHistory('${signal.id}')">History</button>
+          </div>
+        </div>
+      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No signals</strong><span>Run ingestion to populate the explorer.</span></div><div class="status">Idle</div></div>`;
+    }
+
+    function renderVelocityAlerts() {
+      const container = document.getElementById("velocityAlerts");
+      if (!container) return;
+      container.innerHTML = velocityAlerts.slice(0, 8).map((alert) => `
+        <div class="row">
+          <div class="time">${escapeHtml(alert.alertLevel || "watch")}</div>
+          <div>
+            <strong>${escapeHtml(alert.topic || "Velocity alert")}</strong>
+            <span>${escapeHtml(alert.personaName || personaName(alert.personaId))} · acceleration ${alert.accelerationScore || 0} · ${escapeHtml(alert.explanation || "")}</span>
+          </div>
+          <div class="status">${escapeHtml(alert.recommendedAction || "Monitor")}</div>
+        </div>
+      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No velocity alerts</strong><span>Alerts appear when a signal accelerates across snapshots.</span></div><div class="status">Quiet</div></div>`;
+    }
+
+    function renderHermesSettings() {
+      const container = document.getElementById("hermesSettings");
+      if (!container || !hermesSettings) return;
+      const digestAttributionMissing = hermesMorningDigestLatest?.status === "completed" && !(
+        hermesMorningDigestLatest?.attribution?.provider &&
+        hermesMorningDigestLatest?.attribution?.model &&
+        hermesMorningDigestLatest?.attribution?.endpoint &&
+        hermesMorningDigestLatest?.attribution?.jobName
+      );
+      container.innerHTML = `
+        ${hermesHealth ? `
+          <p class="niche">Last validation: ${escapeHtml(hermesHealth.lastValidationStatus || "not run")}</p>
+          <p class="niche">Provider: ${escapeHtml(hermesHealth.lastProvider || "-")} · Model: ${escapeHtml(hermesHealth.lastModel || "-")}</p>
+          <p class="niche">Endpoint: ${escapeHtml(hermesHealth.lastEndpoint || "-")}</p>
+        ` : ""}
+        ${hermesMorningDigestLatest ? `
+          <p class="niche">Provider digest: ${escapeHtml(hermesMorningDigestLatest.status || "not run")} · ${(hermesMorningDigestLatest.providerNames || []).map(escapeHtml).join(", ") || "-"} · ${hermesMorningDigestLatest.signalCount || 0} signals</p>
+          <p class="niche">Digest attribution: ${digestAttributionMissing ? "missing" : "complete"}</p>
+        ` : ""}
+        <label><input type="checkbox" id="morningDigestEnabled" ${hermesSettings.morningDigestEnabled ? "checked" : ""}> Morning Digest enabled</label>
+        <label><input type="checkbox" id="velocityScanEnabled" ${hermesSettings.velocityScanEnabled ? "checked" : ""}> Velocity Scan enabled</label>
+        <label><input type="checkbox" id="middayBriefEnabled" ${hermesSettings.middayBriefEnabled ? "checked" : ""}> Midday Brief enabled</label>
+        <label><input type="checkbox" id="eveningScanEnabled" ${hermesSettings.eveningScanEnabled ? "checked" : ""}> Evening Scan enabled</label>
+        <label><input type="checkbox" id="simulationModeEnabled" ${hermesSettings.simulationModeEnabled ? "checked" : ""}> Simulation Mode enabled</label>
+        <label>Archive after days<input id="archiveAfterDays" type="number" min="1" value="${hermesSettings.archiveAfterDays || 7}"></label>
+        <div class="button-row">
+          <button class="btn secondary" onclick="saveHermesSettings()">Save settings</button>
+          <button class="btn secondary" onclick="simulateHermes()">Simulate Hermes</button>
+          <button class="btn secondary" onclick="runProviderDigest()">Run provider digest</button>
+          <button class="btn secondary" onclick="runHermesValidation()">Run validation</button>
+          <button class="btn link" onclick="archiveSignals()">Archive old signals</button>
+        </div>
+      `;
+    }
+
+    function formatTime(value) {
+      if (!value) return "TBD";
+      return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    function showSection(sectionId) {
+      if (!setupStatus.personasInitialized && sectionId !== "setup") {
+        setAppMode("setup");
+        return;
+      }
+      document.querySelectorAll(".section").forEach((section) => {
+        section.classList.toggle("active", section.id === sectionId);
+      });
+
+      document.querySelectorAll(".nav button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.section === sectionId);
+      });
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timeout);
+      showToast.timeout = window.setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    async function apiFetch(path, options = {}) {
+      const response = await fetch(apiUrl(path), {
+        headers: { "content-type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const text = await response.text();
+      const json = text ? JSON.parse(text) : {};
+      if (!response.ok) throw new Error(json.error || `Request failed: ${response.status}`);
+      return json;
+    }
+
+    async function optionalApiFetch(path, fallback) {
+      try {
+        return await apiFetch(path);
+      } catch (error) {
+        console.warn(`Optional dashboard data failed: ${path}`, error);
+        return fallback;
+      }
+    }
+
+    async function loadBackendData() {
+      try {
+        lastPersonaRequest = { url: "/api/personas", method: "GET" };
+        setupStatus = await apiFetch("/api/setup/status");
+        const personaData = await apiFetch("/api/personas");
+        lastPersonaResponse = personaData;
+        lastPersonaError = null;
+        personas = personaData.map((persona) => ({
+          ...persona,
+          account: persona.handle || persona.account
+        }));
+        backendUnavailable = false;
+
+        if (!setupStatus.personasInitialized || personas.length === 0) {
+          signals = [];
+          explorerSignals = [];
+          drafts = [];
+          scheduleItems = [];
+          ingestionRuns = [];
+          hermesSettings = null;
+          hermesHealth = null;
+          hermesMorningDigestLatest = null;
+          velocityAlerts = [];
+          setAppMode("setup");
+          renderSetupScreen();
+          return;
+        }
+
+        const [signalData, explorerData, draftData, scheduleData, runData, settingsData, healthData, digestData, velocityData] = await Promise.all([
+          optionalApiFetch("/api/signals/today", []),
+          optionalApiFetch("/api/signals?includeDismissed=true&limit=50", []),
+          optionalApiFetch("/api/drafts", []),
+          optionalApiFetch("/api/schedule", []),
+          optionalApiFetch("/api/ingestion/runs", []),
+          optionalApiFetch("/api/hermes/settings", null),
+          optionalApiFetch("/api/hermes/health", null),
+          optionalApiFetch("/api/hermes/morning-digest/latest", null),
+          optionalApiFetch("/api/velocity-alerts", [])
+        ]);
+        signals = signalData;
+        explorerSignals = explorerData;
+        drafts = draftData;
+        scheduleItems = scheduleData.length ? scheduleData : fallbackScheduleItems;
+        ingestionRuns = runData;
+        hermesSettings = settingsData;
+        hermesHealth = healthData;
+        hermesMorningDigestLatest = digestData;
+        velocityAlerts = velocityData;
+        setAppMode("dashboard");
+      } catch (error) {
+        console.info("Backend unavailable for persona setup.", error);
+        personas = [];
+        signals = [];
+        explorerSignals = [];
+        drafts = [];
+        scheduleItems = [];
+        ingestionRuns = [];
+        hermesSettings = null;
+        hermesHealth = null;
+        hermesMorningDigestLatest = null;
+        velocityAlerts = [];
+        backendUnavailable = true;
+        setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
+        lastPersonaError = error;
+        setAppMode("setup");
+        renderSetupScreen("Backend unavailable. Start the local server to configure personas.");
+        showToast("Backend unavailable. Start the local server to configure personas.");
+        return;
+      }
+
+      renderPersonaCards();
+      renderTopSignals();
+      renderPersonaEditors();
+      renderSchedule();
+      renderDraftReview();
+      renderIngestionRuns();
+      renderExplorerFilters();
+      renderSignalExplorer();
+      renderVelocityAlerts();
+      renderHermesSettings();
+    }
+
+    async function reloadPersonas() {
+      await loadBackendData();
+    }
+
+    async function initializePersonas() {
+      if (backendUnavailable) {
+        renderSetupScreen("Backend unavailable. Start the local server to configure personas.");
+        return;
+      }
+      const payload = { personas: readSetupPersonas() };
+      lastPersonaRequest = { url: "/api/personas/initialize", method: "POST", body: payload };
+      lastPersonaResponse = null;
+      lastPersonaError = null;
+      try {
+        const initialized = await apiFetch("/api/personas/initialize", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        lastPersonaResponse = initialized;
+        showToast("Personas initialized.");
+        await loadBackendData();
+      } catch (error) {
+        lastPersonaError = error;
+        console.error("Persona setup failed", error);
+        renderSetupScreen(error.message);
+        showToast("Could not save persona setup.");
+      }
+    }
+
+    async function loadExplorerSignals() {
+      const personaId = document.getElementById("signalPersonaFilter")?.value || "";
+      const status = document.getElementById("signalStatusFilter")?.value || "";
+      const sort = document.getElementById("signalSortFilter")?.value || "priority";
+      const params = new URLSearchParams({ includeDismissed: "true", limit: "50", sort });
+      if (personaId) params.set("personaId", personaId);
+      if (status) params.set("status", status);
+      try {
+        explorerSignals = await apiFetch(`/api/signals?${params.toString()}`);
+        renderSignalExplorer();
+      } catch {
+        showToast("Could not load signal explorer.");
+      }
+    }
+
+    async function runIngestion() {
+      try {
+        await apiFetch("/api/ingestion/run", { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Ingestion complete. Signals refreshed for review.");
+      } catch (error) {
+        showToast("Backend unavailable. Fallback mock data is still visible.");
+      }
+    }
+
+    async function simulateHermes() {
+      try {
+        await apiFetch("/api/hermes/simulate", { method: "POST", body: JSON.stringify({ runType: "morning_digest" }) });
+        await loadBackendData();
+        showToast("Hermes simulation imported a morning briefing.");
+      } catch {
+        showToast("Could not simulate Hermes.");
+      }
+    }
+
+    async function runProviderDigest() {
+      try {
+        await apiFetch("/api/hermes/morning-digest/run", {
+          method: "POST",
+          body: JSON.stringify({ providers: ["rss", "news"], maxSignalsPerPersona: 3 })
+        });
+        await loadBackendData();
+        showToast("Provider-backed morning digest complete.");
+      } catch {
+        showToast("Could not run provider digest.");
+      }
+    }
+
+    async function runHermesValidation() {
+      try {
+        await apiFetch("/api/hermes/validate", { method: "POST", body: JSON.stringify({}) });
+        await loadBackendData();
+        showToast("Hermes validation signal imported.");
+      } catch {
+        showToast("Could not run Hermes validation.");
+      }
+    }
+
+    async function saveHermesSettings() {
+      try {
+        hermesSettings = await apiFetch("/api/hermes/settings", {
+          method: "PATCH",
+          body: JSON.stringify({
+            morningDigestEnabled: document.getElementById("morningDigestEnabled").checked,
+            velocityScanEnabled: document.getElementById("velocityScanEnabled").checked,
+            middayBriefEnabled: document.getElementById("middayBriefEnabled").checked,
+            eveningScanEnabled: document.getElementById("eveningScanEnabled").checked,
+            simulationModeEnabled: document.getElementById("simulationModeEnabled").checked,
+            archiveAfterDays: document.getElementById("archiveAfterDays").value
+          })
+        });
+        renderHermesSettings();
+        showToast("Hermes settings saved.");
+      } catch {
+        showToast("Could not save Hermes settings.");
+      }
+    }
+
+    async function archiveSignals() {
+      try {
+        const result = await apiFetch("/api/signals/archive", { method: "POST", body: JSON.stringify({}) });
+        await loadBackendData();
+        showToast(`${result.archived} signals archived.`);
+      } catch {
+        showToast("Could not archive signals.");
+      }
+    }
+
+    async function showSignalHistory(signalId) {
+      const history = await apiFetch(`/api/signals/${signalId}/history`);
+      const container = document.getElementById("signalHistory");
+      container.innerHTML = history.snapshots.map((snapshot) => `
+        <div class="row">
+          <div class="time">${formatTime(snapshot.capturedAt)}</div>
+          <div>
+            <strong>${escapeHtml(history.signal.topic)}</strong>
+            <span>Priority ${snapshot.priorityScore} · Velocity ${snapshot.velocityScore} · Freshness ${snapshot.freshnessScore}</span>
+          </div>
+          <div class="status">${escapeHtml(history.signal.sourceProvider || history.signal.source || "Source")}</div>
+        </div>
+      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No history yet</strong><span>This signal has no score snapshots.</span></div><div class="status">Empty</div></div>`;
+    }
+
+    async function markSignalReviewed(signalId) {
+      try {
+        await apiFetch(`/api/signals/${signalId}/mark-reviewed`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Signal marked reviewed.");
+      } catch {
+        showToast("Could not update signal.");
+      }
+    }
+
+    async function dismissSignal(signalId) {
+      try {
+        await apiFetch(`/api/signals/${signalId}/dismiss`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Signal dismissed.");
+      } catch {
+        showToast("Could not dismiss signal.");
+      }
+    }
+
+    async function generateDrafts(personaId) {
+      const persona = personas.find((item) => item.id === personaId);
+      const signalIds = signalListFor(personaId).filter((signal) => signal.status === "reviewed").slice(0, 3).map((signal) => signal.id);
+      const fallbackIds = signalListFor(personaId).slice(0, 3).map((signal) => signal.id);
+      try {
+        await apiFetch("/api/drafts/generate", {
+          method: "POST",
+          body: JSON.stringify({ personaId, signalIds: signalIds.length ? signalIds : fallbackIds, count: 3 })
+        });
+        await loadBackendData();
+        showSection("schedule");
+        showToast(`Drafts ready for ${persona ? persona.name : "selected persona"}.`);
+      } catch {
+        showToast(`Draft generation mocked for ${persona ? persona.name : "selected persona"}.`);
+      }
+    }
+
+    function reviewDrafts(personaId) {
+      showSection("schedule");
+      drafts = drafts.filter((draft) => !personaId || draft.personaId === personaId).concat(drafts.filter((draft) => personaId && draft.personaId !== personaId));
+      renderDraftReview();
+    }
+
+    async function saveDraft(draftId) {
+      const field = document.getElementById(`draft-${draftId}`);
+      try {
+        await apiFetch(`/api/drafts/${draftId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ editedBody: field.value })
+        });
+        await loadBackendData();
+        showToast("Draft saved.");
+      } catch {
+        showToast("Could not save draft.");
+      }
+    }
+
+    async function approveDraft(draftId) {
+      try {
+        await apiFetch(`/api/drafts/${draftId}/approve`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Draft approved.");
+      } catch {
+        showToast("Could not approve draft.");
+      }
+    }
+
+    async function rejectDraft(draftId) {
+      try {
+        await apiFetch(`/api/drafts/${draftId}/reject`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Draft rejected.");
+      } catch {
+        showToast("Could not reject draft.");
+      }
+    }
+
+    async function regenerateDraft(draftId) {
+      try {
+        await apiFetch(`/api/drafts/${draftId}/regenerate`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Draft regenerated.");
+      } catch {
+        showToast("Could not regenerate draft.");
+      }
+    }
+
+    async function schedulePost(draftId) {
+      try {
+        const approved = draftId ? drafts.find((draft) => draft.id === draftId) : drafts.find((draft) => draft.status === "approved");
+        await apiFetch("/api/schedule", {
+          method: "POST",
+          body: JSON.stringify(approved ? { draftId: approved.id } : { body: "Raw scheduled content from the dashboard." })
+        });
+        await loadBackendData();
+        showToast("Post scheduled locally.");
+      } catch {
+        showToast("Could not schedule post.");
+      }
+    }
+
+    async function cancelPost(postId) {
+      try {
+        await apiFetch(`/api/schedule/${postId}/cancel`, { method: "POST", body: "{}" });
+        await loadBackendData();
+        showToast("Scheduled post cancelled.");
+      } catch {
+        showToast("Could not cancel post.");
+      }
+    }
+
+    function editPersona(personaId) {
+      const persona = personas.find((item) => item.id === personaId);
+      personaEditorState[personaId] = {
+        editing: true,
+        dirty: false,
+        saving: false,
+        saved: false,
+        error: "",
+        draft: {
+          name: persona?.name || "",
+          handle: persona?.handle || persona?.account || "",
+          niche: persona?.niche || "",
+          voiceTone: persona?.voiceTone || "",
+          platformStatus: normalizedPlatformStatus(persona?.platformStatus)
+        }
+      };
+      renderPersonaEditors();
+    }
+
+    function cancelPersonaEdit(personaId) {
+      personaEditorState[personaId] = { editing: false, dirty: false, saving: false, saved: false, error: "", draft: null };
+      renderPersonaEditors();
+    }
+
+    function markPersonaDirty(personaId) {
+      personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, dirty: true, saved: false, error: "" };
+      const card = document.getElementById(`name-${personaId}`)?.closest(".card");
+      const status = card?.querySelector(".status");
+      if (status) status.textContent = "Unsaved";
+    }
+
+    function readPersonaDraft(personaId) {
+      return {
+        name: document.getElementById(`name-${personaId}`)?.value || "",
+        handle: document.getElementById(`handle-${personaId}`)?.value || "",
+        niche: document.getElementById(`niche-${personaId}`)?.value || "",
+        voiceTone: document.getElementById(`voice-${personaId}`)?.value || "",
+        platformStatus: document.getElementById(`platform-${personaId}`)?.value || "active"
+      };
+    }
+
+    async function savePersona(personaId) {
+      const persona = personas.find((item) => item.id === personaId);
+      if (!persona) return;
+      const payload = readPersonaDraft(personaId);
+      lastPersonaRequest = { personaId, url: `/api/personas/${personaId}`, method: "PATCH", body: payload };
+      lastPersonaResponse = null;
+      lastPersonaError = null;
+      console.info("Persona save request", lastPersonaRequest);
+      personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, saving: true, error: "", draft: payload };
+      renderPersonaEditors();
+      try {
+        const updatedPersona = await apiFetch(`/api/personas/${personaId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+        lastPersonaResponse = updatedPersona;
+        personas = personas.map((item) => item.id === personaId ? {
+          ...updatedPersona,
+          account: updatedPersona.handle || updatedPersona.account,
+          topics: item.topics || []
+        } : item);
+        personaEditorState[personaId] = { editing: false, dirty: false, saving: false, saved: true, error: "", draft: null };
+        await loadBackendData();
+        showToast(`${persona.name} saved.`);
+      } catch (error) {
+        lastPersonaError = error;
+        console.error("Persona save failed", error);
+        personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, saving: false, dirty: true, saved: false, error: error.message, draft: payload };
+        renderPersonaEditors();
+        showToast(`Could not save ${persona.name}.`);
+      }
+    }
+
+    async function savePersonaQuery(personaId, queryId) {
+      const persona = personas.find((item) => item.id === personaId);
+      try {
+        await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            query: document.getElementById(`query-text-${queryId}`)?.value,
+            provider: document.getElementById(`query-provider-${queryId}`)?.value,
+            weight: document.getElementById(`query-weight-${queryId}`)?.value
+          })
+        });
+        await loadBackendData();
+        showToast("Search term saved.");
+      } catch (error) {
+        showToast(error.message || `Could not save ${persona ? persona.name : "search term"}.`);
+      }
+    }
+
+    async function addPersonaQuery(personaId) {
+      try {
+        await apiFetch(`/api/personas/${personaId}/queries`, {
+          method: "POST",
+          body: JSON.stringify({
+            query: document.getElementById(`new-query-${personaId}`)?.value,
+            provider: document.getElementById(`new-query-provider-${personaId}`)?.value,
+            weight: document.getElementById(`new-query-weight-${personaId}`)?.value
+          })
+        });
+        await loadBackendData();
+        showToast("Search term added.");
+      } catch (error) {
+        showToast(error.message || "Could not add search term.");
+      }
+    }
+
+    async function deletePersonaQuery(personaId, queryId) {
+      try {
+        await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, { method: "DELETE" });
+        await loadBackendData();
+        showToast("Search term deleted.");
+      } catch {
+        showToast("Could not delete search term.");
+      }
+    }
+
+    async function togglePersonaQuery(personaId, queryId) {
+      try {
+        await apiFetch(`/api/personas/${personaId}/queries/${queryId}/toggle`, { method: "PATCH", body: "{}" });
+        await loadBackendData();
+        showToast("Search term updated.");
+      } catch {
+        showToast("Could not update search term.");
+      }
+    }
+
+    async function testPersonaSave(personaId = "the-wonkette") {
+      const original = await apiFetch(`/api/personas/${personaId}`);
+      const marker = `PCC Browser Save Test ${Date.now()}`;
+      const patched = await apiFetch(`/api/personas/${personaId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: marker,
+          handle: original.handle,
+          niche: original.niche,
+          voiceTone: original.voiceTone,
+          platformStatus: original.platformStatus || "active"
+        })
+      });
+      const persisted = await apiFetch(`/api/personas/${personaId}`);
+      await apiFetch(`/api/personas/${personaId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: original.name,
+          handle: original.handle,
+          niche: original.niche,
+          voiceTone: original.voiceTone,
+          platformStatus: original.platformStatus || "active"
+        })
+      });
+      await loadBackendData();
+      const pass = patched.name === marker && persisted.name === marker;
+      console.info(pass ? "PASS Persona browser save diagnostic" : "FAIL Persona browser save diagnostic", { personaId, patched, persisted });
+      return { pass, personaId, patched, persisted };
+    }
+
+    window.__pccDebug = {
+      get backendPersonas() { return personas; },
+      get personas() { return personas; },
+      get setupStatus() { return setupStatus; },
+      get personaEditorState() { return personaEditorState; },
+      get lastPersonaRequest() { return lastPersonaRequest; },
+      get lastPersonaResponse() { return lastPersonaResponse; },
+      get lastPersonaError() { return lastPersonaError; },
+      initializePersonas,
+      savePersona,
+      reloadPersonas,
+      testPersonaSave
+    };
+
+    document.querySelectorAll(".nav button").forEach((button) => {
+      button.addEventListener("click", () => showSection(button.dataset.section));
+    });
+
+    loadBackendData();
+  </script>
+</body>
+</html>

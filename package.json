@@ -1,0 +1,23 @@
+{
+  "name": "persona-command-center",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "init:db": "node scripts/init-db.js",
+    "dev": "node src/server.js",
+    "build": "node scripts/init-db.js",
+    "typecheck": "node --check src/db.js && node --check src/server.js && node --check src/hermes/hermesClient.js && node --check src/hermes/hermesJobs.js && node --check src/hermes/hermesImport.js && node --check src/hermes/chiefOfStaff.js && node --check src/hermes/providerMorningDigest.js && node --check src/hermes/validationJob.js && node --check src/velocity/snapshotEngine.js && node --check src/velocity/accelerationEngine.js && node --check src/velocity/alertEngine.js && node --check src/ingestion/pipeline.js && node --check src/ingestion/freshnessFilter.js && node --check src/ingestion/scoring.js && node --check src/providers/rssProvider.js && node --check src/providers/newsProvider.js && node --check scripts/init-db.js && node --check scripts/hermes-validation-job.js && node --check scripts/hermes-morning-verification.js && node --check scripts/run-provider-morning-digest.js && node --check scripts/verify-digest-quality.js && node --check scripts/verify-first-run-persona-setup.js && node --check scripts/verify-frontend-save-path.js && node --check scripts/verify-persona-persistence.js && node --check scripts/verify-velocity-engine.js && node --check tests/smoke-test.js",
+    "test": "node scripts/verify-frontend-save-path.js && node tests/smoke-test.js",
+    "verify:hermes-morning": "node scripts/hermes-morning-verification.js",
+    "hermes:morning-digest": "node scripts/run-provider-morning-digest.js",
+    "verify:digest-quality": "node scripts/verify-digest-quality.js",
+    "verify:first-run-setup": "node scripts/verify-first-run-persona-setup.js",
+    "verify:frontend-save-path": "node scripts/verify-frontend-save-path.js",
+    "verify:persona-persistence": "node scripts/verify-persona-persistence.js",
+    "verify:velocity": "node scripts/verify-velocity-engine.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
