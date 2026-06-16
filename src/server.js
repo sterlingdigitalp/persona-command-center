@@ -31,13 +31,14 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload, null, 2));
 }
 
-function sendText(res, status, text, contentType = "text/plain; charset=utf-8") {
+function sendText(res, status, text, contentType = "text/plain; charset=utf-8", extraHeaders = {}) {
   res.writeHead(status, {
     "content-type": contentType,
     "cache-control": "no-store",
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-    "access-control-allow-headers": "content-type"
+    "access-control-allow-headers": "content-type",
+    ...extraHeaders
   });
   res.end(text);
 }
@@ -59,6 +60,9 @@ function mapPersona(row, queries = []) {
     niche: row.niche,
     voiceTone: row.voice_tone,
     platformStatus: row.platform_status,
+    userEdited: Boolean(row.user_edited),
+    userEditedAt: row.user_edited_at,
+    lockedFromSeedOverwrite: Boolean(row.locked_from_seed_overwrite),
     queries
   };
 }
@@ -72,6 +76,9 @@ function mapPersonaQuery(row) {
     provider: row.provider || row.source_type || "news",
     weight: row.weight || 1,
     isActive: Boolean(row.is_active),
+    userEdited: Boolean(row.user_edited),
+    userEditedAt: row.user_edited_at,
+    lockedFromSeedOverwrite: Boolean(row.locked_from_seed_overwrite),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -325,22 +332,39 @@ async function updatePersona(personaId, payload) {
       niche = COALESCE(${sqlString(normalized.niche)}, niche),
       voice_tone = COALESCE(${sqlString(normalized.voiceTone)}, voice_tone),
       platform_status = COALESCE(${sqlString(normalized.platformStatus)}, platform_status),
+      user_edited = 1,
+      user_edited_at = CURRENT_TIMESTAMP,
+      locked_from_seed_overwrite = 1,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ${sqlString(personaId)};
   `);
 
   if (Array.isArray(payload.queries)) {
-    await execSql(`UPDATE persona_queries SET is_active = 0 WHERE persona_id = ${sqlString(personaId)};`);
+    await execSql(`
+      UPDATE persona_queries
+      SET is_active = 0,
+          user_edited = 1,
+          user_edited_at = CURRENT_TIMESTAMP,
+          locked_from_seed_overwrite = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE persona_id = ${sqlString(personaId)};
+    `);
     for (const query of payload.queries) {
       const normalizedQuery = normalizeQueryPayload(typeof query === "string" ? { query } : query, { partial: false });
       await execSql(`
-        INSERT INTO persona_queries (id, persona_id, query, source_type, provider, weight, is_active, updated_at)
+        INSERT INTO persona_queries (
+          id, persona_id, query, source_type, provider, weight, is_active,
+          user_edited, user_edited_at, locked_from_seed_overwrite, updated_at
+        )
         VALUES (
           ${sqlString(newId("query"))}, ${sqlString(personaId)},
           ${sqlString(normalizedQuery.query)},
           ${sqlString(normalizedQuery.sourceType || "public_feed")},
           ${sqlString(normalizedQuery.provider || "news")},
           ${Number(normalizedQuery.weight || 1)},
+          1,
+          1,
+          CURRENT_TIMESTAMP,
           1,
           CURRENT_TIMESTAMP
         );
@@ -357,11 +381,15 @@ async function addPersonaQuery(personaId, payload) {
   const query = normalizeQueryPayload(payload, { partial: false });
   const queryId = newId("query");
   await execSql(`
-    INSERT INTO persona_queries (id, persona_id, query, source_type, provider, weight, is_active, updated_at)
+    INSERT INTO persona_queries (
+      id, persona_id, query, source_type, provider, weight, is_active,
+      user_edited, user_edited_at, locked_from_seed_overwrite, updated_at
+    )
     VALUES (
       ${sqlString(queryId)}, ${sqlString(personaId)}, ${sqlString(query.query)},
       ${sqlString(query.sourceType || "public_feed")}, ${sqlString(query.provider || "news")},
-      ${Number(query.weight || 1)}, ${query.isActive === false ? 0 : 1}, CURRENT_TIMESTAMP
+      ${Number(query.weight || 1)}, ${query.isActive === false ? 0 : 1},
+      1, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP
     );
   `);
   await audit("persona_query.created", "persona_query", queryId, { personaId, queryId });
@@ -472,13 +500,23 @@ async function initializePersonas(payload = {}) {
   if (ids.size !== normalizedPersonas.length) throw validationError("persona ids must be unique");
 
   const existing = await getPersonas({ includeInactiveQueries: true });
+  if (existing.length) {
+    await audit("setup.skipped_existing_personas", "persona", "all", {
+      reason: "existing_personas_protected",
+      personaCount: existing.length
+    });
+    return existing;
+  }
   const existingByHandle = new Map(existing.map((persona) => [String(persona.handle || "").toLowerCase(), persona.id]));
   const initialized = [];
 
   for (const persona of normalizedPersonas) {
     const personaId = existingByHandle.get(persona.handle.toLowerCase()) || persona.id;
     await execSql(`
-      INSERT INTO personas (id, name, handle, niche, voice_tone, platform_status, updated_at)
+      INSERT INTO personas (
+        id, name, handle, niche, voice_tone, platform_status,
+        user_edited, user_edited_at, locked_from_seed_overwrite, updated_at
+      )
       VALUES (
         ${sqlString(personaId)},
         ${sqlString(persona.name)},
@@ -486,17 +524,11 @@ async function initializePersonas(payload = {}) {
         ${sqlString(persona.niche)},
         ${sqlString(persona.voiceTone)},
         ${sqlString(persona.platformStatus)},
+        1,
+        CURRENT_TIMESTAMP,
+        1,
         CURRENT_TIMESTAMP
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        handle = excluded.handle,
-        niche = excluded.niche,
-        voice_tone = excluded.voice_tone,
-        platform_status = excluded.platform_status,
-        updated_at = CURRENT_TIMESTAMP;
-
-      DELETE FROM persona_queries WHERE persona_id = ${sqlString(personaId)};
+      );
     `);
 
     let index = 0;
@@ -504,7 +536,10 @@ async function initializePersonas(payload = {}) {
       index += 1;
       const queryId = `${personaId}-query-${index}`;
       await execSql(`
-        INSERT INTO persona_queries (id, persona_id, query, source_type, provider, weight, is_active, updated_at)
+        INSERT INTO persona_queries (
+          id, persona_id, query, source_type, provider, weight, is_active,
+          user_edited, user_edited_at, locked_from_seed_overwrite, updated_at
+        )
         VALUES (
           ${sqlString(queryId)},
           ${sqlString(personaId)},
@@ -513,15 +548,11 @@ async function initializePersonas(payload = {}) {
           ${sqlString(query.provider || "news")},
           ${Number(query.weight || 3)},
           ${query.isActive === false ? 0 : 1},
+          1,
+          CURRENT_TIMESTAMP,
+          1,
           CURRENT_TIMESTAMP
-        )
-        ON CONFLICT(id) DO UPDATE SET
-          query = excluded.query,
-          source_type = excluded.source_type,
-          provider = excluded.provider,
-          weight = excluded.weight,
-          is_active = excluded.is_active,
-          updated_at = CURRENT_TIMESTAMP;
+        );
       `);
     }
 
@@ -533,7 +564,9 @@ async function initializePersonas(payload = {}) {
 }
 
 async function resetPersonasForSetup(payload = {}) {
-  if (payload.confirm !== "RESET_PERSONAS") throw validationError("reset requires confirm: RESET_PERSONAS");
+  if (payload.confirm !== "DELETE_PERSONAS" && process.env.RESET_PERSONAS_CONFIRM !== "YES") {
+    throw validationError("reset requires confirm: DELETE_PERSONAS");
+  }
   await execSql(`
     DELETE FROM velocity_alerts;
     DELETE FROM signal_snapshots WHERE signal_id IN (SELECT id FROM signals);
@@ -544,7 +577,7 @@ async function resetPersonasForSetup(payload = {}) {
     DELETE FROM platform_accounts;
     DELETE FROM personas;
   `);
-  await audit("personas.reset", "persona", "all", { purpose: "first-run setup verification" });
+  await audit("destructive_reset.executed", "persona", "all", { purpose: "first-run setup verification" });
   return getSetupStatus();
 }
 
@@ -584,6 +617,9 @@ async function updatePersonaQuery(personaId, queryId, payload) {
       provider = COALESCE(${sqlString(query.provider)}, provider),
       weight = COALESCE(${query.weight === undefined ? "NULL" : query.weight}, weight),
       is_active = COALESCE(${query.isActive === undefined ? "NULL" : query.isActive ? 1 : 0}, is_active),
+      user_edited = 1,
+      user_edited_at = CURRENT_TIMESTAMP,
+      locked_from_seed_overwrite = 1,
       updated_at = CURRENT_TIMESTAMP
     WHERE persona_id = ${sqlString(personaId)} AND id = ${sqlString(queryId)};
   `);
@@ -597,6 +633,9 @@ async function togglePersonaQuery(personaId, queryId) {
   await execSql(`
     UPDATE persona_queries
     SET is_active = ${existing.isActive ? 0 : 1},
+        user_edited = 1,
+        user_edited_at = CURRENT_TIMESTAMP,
+        locked_from_seed_overwrite = 1,
         updated_at = CURRENT_TIMESTAMP
     WHERE persona_id = ${sqlString(personaId)} AND id = ${sqlString(queryId)};
   `);
@@ -768,7 +807,11 @@ async function simulateHermesImport(runType = "morning_digest") {
 }
 
 async function runHermesProviderMorningDigest(payload = {}) {
-  const personas = await getPersonas();
+  const allPersonas = await getPersonas();
+  const personas = allPersonas.filter((persona) => persona.platformStatus === "active");
+  const skippedPersonaIds = allPersonas
+    .filter((persona) => persona.platformStatus !== "active")
+    .map((persona) => persona.id);
   const recentTopicsByPersona = new Map();
   for (const persona of personas) {
     recentTopicsByPersona.set(
@@ -783,6 +826,8 @@ async function runHermesProviderMorningDigest(payload = {}) {
     importPayload: importHermesPayload,
     options: payload
   });
+  result.skippedPersonaIds = skippedPersonaIds;
+  result.skippedPersonaCount = skippedPersonaIds.length;
 
   await execSql(`
     UPDATE ingestion_runs
@@ -799,6 +844,8 @@ async function runHermesProviderMorningDigest(payload = {}) {
           missingDateFilteredCount: result.missingDateFilteredCount,
           freshCandidateCount: result.freshCandidateCount,
           dedupedCount: result.dedupedCount,
+          skippedPersonaIds: result.skippedPersonaIds,
+          skippedPersonaCount: result.skippedPersonaCount,
           topSignalsByPersona: result.topSignalsByPersona,
           attribution: result.attribution
         })}
@@ -807,7 +854,8 @@ async function runHermesProviderMorningDigest(payload = {}) {
   await audit("hermes.provider_morning_digest.completed", "ingestion_run", result.runId, {
     providerNames: result.providerNames,
     candidateCount: result.candidateCount,
-    signalCount: result.signalCount
+    signalCount: result.signalCount,
+    skippedPersonaCount: result.skippedPersonaCount
   });
   return result;
 }
@@ -1492,7 +1540,9 @@ async function routeApi(req, res, url) {
 async function routeStatic(_req, res, url) {
   if (url.pathname === "/" || url.pathname === "/persona-command-center.html") {
     const html = await readFile(path.join(rootDir, "outputs", "persona-command-center.html"), "utf8");
-    sendText(res, 200, html, "text/html; charset=utf-8");
+    sendText(res, 200, html, "text/html; charset=utf-8", {
+      "x-pcc-frontend-build": "persona-api-connected-v2"
+    });
     return;
   }
 

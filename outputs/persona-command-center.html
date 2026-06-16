@@ -467,6 +467,109 @@
       margin-top: 18px;
     }
 
+    .field-help {
+      margin: 0;
+      color: var(--soft);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .search-term-section {
+      display: grid;
+      gap: 14px;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .search-term-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .search-term-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .query-list {
+      display: grid;
+      gap: 2px;
+    }
+
+    .query-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      max-width: 100%;
+      padding: 12px 0;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .query-row:first-child {
+      border-top: 0;
+    }
+
+    .query-row-new {
+      align-items: start;
+    }
+
+    .query-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .query-phrase {
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .query-meta,
+    .search-term-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .query-edit-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 96px 76px 88px;
+      gap: 8px;
+      align-items: end;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .query-phrase-input {
+      min-width: 0;
+    }
+
+    .query-small-select {
+      min-width: 0;
+      padding: 9px 8px;
+    }
+
+    .query-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .query-actions .btn {
+      min-height: 30px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
     label {
       display: grid;
       gap: 7px;
@@ -669,6 +772,18 @@
       .row {
         grid-template-columns: 1fr;
         gap: 8px;
+      }
+
+      .query-row {
+        grid-template-columns: 1fr;
+      }
+
+      .query-edit-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .query-phrase-input {
+        grid-column: 1 / -1;
       }
 
       .status {
@@ -951,6 +1066,7 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="buildMarker" style="position: fixed; right: 14px; bottom: 10px; color: var(--soft); font-size: 11px;">persona-api-connected-v2</div>
 
   <!--
     Backend architecture notes:
@@ -963,6 +1079,12 @@
   -->
 
   <script>
+    const PCC_FRONTEND_BUILD = "persona-api-connected-v2";
+    const API_BASE = window.location.protocol === "file:"
+      ? "http://127.0.0.1:3000"
+      : window.location.origin;
+    console.log(`PCC frontend build: ${PCC_FRONTEND_BUILD}`, { API_BASE, href: window.location.href });
+
     const setupDrafts = Array.from({ length: 4 }, (_, index) => ({
       label: `Persona ${index + 1}`,
       provider: index % 2 === 0 ? "news" : "rss"
@@ -990,7 +1112,11 @@
     let lastPersonaRequest = null;
     let lastPersonaResponse = null;
     let lastPersonaError = null;
+    let lastFetchUrl = null;
+    let lastFetchStatus = null;
+    let lastFetchError = null;
     const personaEditorState = {};
+    const queryEditorState = {};
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -1025,9 +1151,21 @@
       )).join("");
     }
 
+    function queryProviderOptions(selected) {
+      return ["news", "rss"].map((provider) => (
+        `<option value="${provider}" ${provider === selected ? "selected" : ""}>${provider}</option>`
+      )).join("");
+    }
+
+    function queryWeightOptions(selected) {
+      const current = Number(selected || 3);
+      return [1, 2, 3, 4, 5].map((weight) => (
+        `<option value="${weight}" ${weight === current ? "selected" : ""}>${weight}</option>`
+      )).join("");
+    }
+
     function apiUrl(path) {
-      const base = window.PCC_API_BASE || (window.location.protocol === "file:" ? "http://127.0.0.1:3000" : "");
-      return `${base}${path}`;
+      return `${API_BASE}${path}`;
     }
 
     function setAppMode(mode) {
@@ -1047,7 +1185,7 @@
       const form = document.getElementById("setupForm");
       if (!form) return;
       setupMessage.textContent = backendUnavailable
-        ? "Backend unavailable. Start the local server to configure personas."
+        ? `Backend unavailable. Start the local server to configure personas. Build ${PCC_FRONTEND_BUILD}. API_BASE ${API_BASE}. Page ${window.location.href}.`
         : "Create four persistent persona lanes before the dashboard opens. These records are saved to SQLite and become the source of truth for editing, Hermes export, and future digests.";
       setupError.textContent = message;
       form.innerHTML = setupDrafts.map((draft, index) => `
@@ -1153,6 +1291,77 @@
       document.getElementById("personaCards").innerHTML = cards;
     }
 
+    function renderPersonaQueryEdit(personaId, queryId, draft, mode = "existing") {
+      const prefix = mode === "new" ? `new-query-${personaId}` : `query-${queryId}`;
+      return `
+        <div class="query-edit-grid">
+          <label class="query-phrase-input">
+            Search Phrase
+            <input id="${prefix}-text" value="${escapeHtml(draft.query || "")}" placeholder="Search phrase">
+          </label>
+          <label>
+            Provider
+            <select class="query-small-select" id="${prefix}-provider">${queryProviderOptions(draft.provider || "news")}</select>
+          </label>
+          <label>
+            Weight
+            <select class="query-small-select" id="${prefix}-weight">${queryWeightOptions(draft.weight || 3)}</select>
+          </label>
+          <label>
+            Active
+            <select class="query-small-select" id="${prefix}-active">
+              <option value="true" ${draft.isActive !== false ? "selected" : ""}>Active</option>
+              <option value="false" ${draft.isActive === false ? "selected" : ""}>Inactive</option>
+            </select>
+          </label>
+        </div>
+      `;
+    }
+
+    function renderPersonaQueryRow(personaId, query) {
+      const state = queryEditorState[query.id] || {};
+      const editing = Boolean(state.editing);
+      const draft = editing && state.draft ? state.draft : query;
+      return `
+        <article class="query-row" data-query-id="${escapeHtml(query.id)}">
+          ${editing ? `
+            ${renderPersonaQueryEdit(personaId, query.id, draft)}
+            ${state.error ? `<p class="field-help">${escapeHtml(state.error)}</p>` : ""}
+            <div class="query-actions">
+              <button type="button" class="btn secondary" onclick="savePersonaQuery('${personaId}', '${query.id}')">Save</button>
+              <button type="button" class="btn link" onclick="cancelPersonaQueryEdit('${query.id}')">Cancel</button>
+              <button type="button" class="btn link" onclick="deletePersonaQuery('${personaId}', '${query.id}')">Delete</button>
+            </div>
+          ` : `
+            <div class="query-main">
+              <p class="query-phrase">${escapeHtml(query.query || "")}</p>
+              <div class="query-meta">Provider: ${escapeHtml(query.provider || "news")} · Weight: ${query.weight || 1} · ${query.isActive ? "Active" : "Inactive"}</div>
+            </div>
+            <div class="query-actions">
+              <button type="button" class="btn secondary" onclick="editPersonaQuery('${query.id}')">Edit</button>
+              <button type="button" class="btn link" onclick="togglePersonaQuery('${personaId}', '${query.id}')">${query.isActive ? "Deactivate" : "Activate"}</button>
+              <button type="button" class="btn link" onclick="deletePersonaQuery('${personaId}', '${query.id}')">Delete</button>
+            </div>
+          `}
+        </article>
+      `;
+    }
+
+    function renderNewPersonaQueryRow(personaId) {
+      return `
+        <article class="query-row query-row-new">
+          <div class="query-main">
+            <p class="query-phrase">Add Search Term</p>
+            <span class="query-meta">Provider and weight persist to SQLite</span>
+            ${renderPersonaQueryEdit(personaId, "new", { query: "", provider: "news", weight: 3, isActive: true }, "new")}
+          </div>
+          <div class="query-actions">
+            <button type="button" class="btn secondary" onclick="addPersonaQuery('${personaId}')">Add term</button>
+          </div>
+        </article>
+      `;
+    }
+
     function renderTopSignals() {
       const container = document.getElementById("topSignals");
       if (!container) return;
@@ -1178,9 +1387,6 @@
     }
 
     function renderPersonaEditors() {
-      const providerOptions = (selected) => ["news", "rss"].map((provider) => (
-        `<option value="${provider}" ${provider === selected ? "selected" : ""}>${provider}</option>`
-      )).join("");
       const cards = personas.map((persona) => {
         const state = personaEditorState[persona.id] || {};
         const editing = Boolean(state.editing);
@@ -1220,10 +1426,11 @@
               <textarea id="voice-${persona.id}" ${disabled} oninput="markPersonaDirty('${persona.id}')" aria-label="${escapeHtml(persona.name)} voice">${escapeHtml(draft.voiceTone || "")}</textarea>
             </label>
             <label>
-              Platform status
+              Automation Status
               <select id="platform-${persona.id}" ${disabled} onchange="markPersonaDirty('${persona.id}')">
                 ${platformStatusOptions(draft.platformStatus)}
               </select>
+              <span class="field-help">Active personas are included in Hermes ingestion. Draft or disconnected personas are skipped.</span>
             </label>
             <div class="button-row">
               ${editing
@@ -1231,36 +1438,16 @@
                 : `<button type="button" class="btn secondary" onclick="editPersona('${persona.id}')">Edit</button>`}
             </div>
             ${state.error ? `<p class="niche">${escapeHtml(state.error)}</p>` : ""}
-            <hr style="border: 0; border-top: 1px solid var(--line); width: 100%;">
-            <h3>Search terms</h3>
-            ${queries.map((query) => `
-              <div class="row" style="align-items: start;">
-                <div class="time">${query.isActive ? "On" : "Off"}</div>
-                <div class="form" style="gap: 8px;">
-                  <input id="query-text-${query.id}" value="${escapeHtml(query.query || "")}" aria-label="Search term">
-                  <div class="button-row">
-                    <select id="query-provider-${query.id}" aria-label="Provider">${providerOptions(query.provider || "news")}</select>
-                    <input id="query-weight-${query.id}" type="number" min="1" max="5" value="${query.weight || 1}" aria-label="Weight" style="max-width: 90px;">
-                  </div>
-                  <div class="button-row">
-                    <button type="button" class="btn link" onclick="savePersonaQuery('${persona.id}', '${query.id}')">Save term</button>
-                    <button type="button" class="btn link" onclick="togglePersonaQuery('${persona.id}', '${query.id}')">${query.isActive ? "Deactivate" : "Activate"}</button>
-                    <button type="button" class="btn link" onclick="deletePersonaQuery('${persona.id}', '${query.id}')">Delete</button>
-                  </div>
-                </div>
+            <section class="search-term-section" aria-label="${escapeHtml(persona.name)} search terms">
+              <div class="search-term-header">
+                <h3>Search Terms</h3>
+                <span class="search-term-meta">${queries.filter((query) => query.isActive).length} active · ${queries.length} total</span>
               </div>
-            `).join("") || `<p class="niche">No search terms yet.</p>`}
-            <div class="row" style="align-items: start;">
-              <div class="time">New</div>
-              <div class="form" style="gap: 8px;">
-                <input id="new-query-${persona.id}" placeholder="Add search term" aria-label="Add search term">
-                <div class="button-row">
-                  <select id="new-query-provider-${persona.id}" aria-label="New term provider">${providerOptions("news")}</select>
-                  <input id="new-query-weight-${persona.id}" type="number" min="1" max="5" value="1" aria-label="New term weight" style="max-width: 90px;">
-                  <button type="button" class="btn link" onclick="addPersonaQuery('${persona.id}')">Add term</button>
-                </div>
+              <div class="query-list">
+                ${queries.map((query) => renderPersonaQueryRow(persona.id, query)).join("") || `<p class="niche">No search terms yet.</p>`}
+                ${renderNewPersonaQueryRow(persona.id)}
               </div>
-            </div>
+            </section>
           </div>
         </article>
       `;
@@ -1443,14 +1630,33 @@
     }
 
     async function apiFetch(path, options = {}) {
-      const response = await fetch(apiUrl(path), {
-        headers: { "content-type": "application/json", ...(options.headers || {}) },
-        ...options
-      });
-      const text = await response.text();
-      const json = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(json.error || `Request failed: ${response.status}`);
-      return json;
+      const url = apiUrl(path);
+      lastFetchUrl = url;
+      lastFetchStatus = null;
+      lastFetchError = null;
+      const debug = window.__pccDebug;
+      if (debug) {
+        debug.lastFetchUrl = url;
+        debug.lastFetchStatus = null;
+        debug.lastFetchError = null;
+      }
+      try {
+        const response = await fetch(url, {
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+          ...options
+        });
+        lastFetchStatus = response.status;
+        if (debug) debug.lastFetchStatus = response.status;
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`${response.status} ${text || response.statusText}`);
+        }
+        return text ? JSON.parse(text) : {};
+      } catch (error) {
+        lastFetchError = error.message;
+        if (debug) debug.lastFetchError = error.message;
+        throw error;
+      }
     }
 
     async function optionalApiFetch(path, fallback) {
@@ -1462,13 +1668,35 @@
       }
     }
 
+    function describeBackendError(error) {
+      return [
+        `Request URL: ${lastFetchUrl || "not started"}`,
+        `Status: ${lastFetchStatus ?? "none"}`,
+        `Error: ${error?.message || lastFetchError || "unknown"}`,
+        `Page: ${window.location.href}`,
+        `API_BASE: ${API_BASE}`
+      ].join(" | ");
+    }
+
+    async function testBackend() {
+      return {
+        health: await apiFetch("/api/health"),
+        personas: await apiFetch("/api/personas")
+      };
+    }
+
     async function loadBackendData() {
       try {
+        const backend = await testBackend();
+        const personaData = backend.personas;
         lastPersonaRequest = { url: "/api/personas", method: "GET" };
-        setupStatus = await apiFetch("/api/setup/status");
-        const personaData = await apiFetch("/api/personas");
         lastPersonaResponse = personaData;
         lastPersonaError = null;
+        setupStatus = await optionalApiFetch("/api/setup/status", {
+          backendReachable: true,
+          personasInitialized: personaData.length > 0,
+          personaCount: personaData.length
+        });
         personas = personaData.map((persona) => ({
           ...persona,
           account: persona.handle || persona.account
@@ -1527,8 +1755,9 @@
         setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
         lastPersonaError = error;
         setAppMode("setup");
-        renderSetupScreen("Backend unavailable. Start the local server to configure personas.");
-        showToast("Backend unavailable. Start the local server to configure personas.");
+        const detail = describeBackendError(error);
+        renderSetupScreen(detail);
+        showToast("Backend unavailable. See setup details.");
         return;
       }
 
@@ -1550,7 +1779,7 @@
 
     async function initializePersonas() {
       if (backendUnavailable) {
-        renderSetupScreen("Backend unavailable. Start the local server to configure personas.");
+        renderSetupScreen(describeBackendError(lastPersonaError || new Error("Backend unavailable")));
         return;
       }
       const payload = { personas: readSetupPersonas() };
@@ -1594,7 +1823,7 @@
         await loadBackendData();
         showToast("Ingestion complete. Signals refreshed for review.");
       } catch (error) {
-        showToast("Backend unavailable. Fallback mock data is still visible.");
+        showToast(`Ingestion failed: ${describeBackendError(error)}`);
       }
     }
 
@@ -1828,6 +2057,55 @@
       };
     }
 
+    function readPersonaQueryDraft(queryId) {
+      const prefix = `query-${queryId}`;
+      return {
+        query: document.getElementById(`${prefix}-text`)?.value || "",
+        provider: document.getElementById(`${prefix}-provider`)?.value || "news",
+        weight: document.getElementById(`${prefix}-weight`)?.value || 3,
+        isActive: document.getElementById(`${prefix}-active`)?.value !== "false"
+      };
+    }
+
+    function readNewPersonaQueryDraft(personaId) {
+      const prefix = `new-query-${personaId}`;
+      return {
+        query: document.getElementById(`${prefix}-text`)?.value || "",
+        provider: document.getElementById(`${prefix}-provider`)?.value || "news",
+        weight: document.getElementById(`${prefix}-weight`)?.value || 3,
+        isActive: document.getElementById(`${prefix}-active`)?.value !== "false"
+      };
+    }
+
+    function findPersonaQuery(queryId) {
+      for (const persona of personas) {
+        const query = (persona.queries || []).find((item) => item.id === queryId);
+        if (query) return query;
+      }
+      return null;
+    }
+
+    function editPersonaQuery(queryId) {
+      const query = findPersonaQuery(queryId);
+      if (!query) return;
+      queryEditorState[queryId] = {
+        editing: true,
+        error: "",
+        draft: {
+          query: query.query || "",
+          provider: query.provider || "news",
+          weight: query.weight || 3,
+          isActive: query.isActive !== false
+        }
+      };
+      renderPersonaEditors();
+    }
+
+    function cancelPersonaQueryEdit(queryId) {
+      queryEditorState[queryId] = { editing: false, error: "", draft: null };
+      renderPersonaEditors();
+    }
+
     async function savePersona(personaId) {
       const persona = personas.find((item) => item.id === personaId);
       if (!persona) return;
@@ -1863,31 +2141,29 @@
 
     async function savePersonaQuery(personaId, queryId) {
       const persona = personas.find((item) => item.id === personaId);
+      const payload = readPersonaQueryDraft(queryId);
+      queryEditorState[queryId] = { ...(queryEditorState[queryId] || {}), editing: true, error: "", draft: payload };
       try {
         await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, {
           method: "PATCH",
-          body: JSON.stringify({
-            query: document.getElementById(`query-text-${queryId}`)?.value,
-            provider: document.getElementById(`query-provider-${queryId}`)?.value,
-            weight: document.getElementById(`query-weight-${queryId}`)?.value
-          })
+          body: JSON.stringify(payload)
         });
+        queryEditorState[queryId] = { editing: false, error: "", draft: null };
         await loadBackendData();
         showToast("Search term saved.");
       } catch (error) {
+        queryEditorState[queryId] = { editing: true, error: error.message, draft: payload };
+        renderPersonaEditors();
         showToast(error.message || `Could not save ${persona ? persona.name : "search term"}.`);
       }
     }
 
     async function addPersonaQuery(personaId) {
+      const payload = readNewPersonaQueryDraft(personaId);
       try {
         await apiFetch(`/api/personas/${personaId}/queries`, {
           method: "POST",
-          body: JSON.stringify({
-            query: document.getElementById(`new-query-${personaId}`)?.value,
-            provider: document.getElementById(`new-query-provider-${personaId}`)?.value,
-            weight: document.getElementById(`new-query-weight-${personaId}`)?.value
-          })
+          body: JSON.stringify(payload)
         });
         await loadBackendData();
         showToast("Search term added.");
@@ -1899,6 +2175,7 @@
     async function deletePersonaQuery(personaId, queryId) {
       try {
         await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, { method: "DELETE" });
+        delete queryEditorState[queryId];
         await loadBackendData();
         showToast("Search term deleted.");
       } catch {
@@ -1947,6 +2224,11 @@
     }
 
     window.__pccDebug = {
+      apiBase: API_BASE,
+      frontendBuild: PCC_FRONTEND_BUILD,
+      lastFetchUrl: null,
+      lastFetchStatus: null,
+      lastFetchError: null,
       get backendPersonas() { return personas; },
       get personas() { return personas; },
       get setupStatus() { return setupStatus; },
@@ -1957,6 +2239,11 @@
       initializePersonas,
       savePersona,
       reloadPersonas,
+      addPersonaQuery,
+      updatePersonaQuery: savePersonaQuery,
+      deletePersonaQuery,
+      togglePersonaQuery,
+      testBackend,
       testPersonaSave
     };
 

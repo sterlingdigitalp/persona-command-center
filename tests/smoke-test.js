@@ -159,6 +159,15 @@ try {
   const health = await api("/api/health");
   assert(health.ok === true, "health endpoint should return ok");
   assert(health.phase === 4, "health endpoint should report phase 4");
+  try {
+    await api("/api/setup/reset-personas", {
+      method: "POST",
+      body: JSON.stringify({ confirm: "RESET_PERSONAS" })
+    });
+    throw new Error("legacy reset confirmation should fail");
+  } catch (error) {
+    assert(error.message.includes("DELETE_PERSONAS"), "destructive reset should require DELETE_PERSONAS confirmation");
+  }
 
   const personas = await api("/api/personas");
   assert(personas.length === 4, "expected four seeded personas");
@@ -180,6 +189,8 @@ try {
   assert(updatedPersona.niche === "Smoke-test niche for policy and culture", "persona niche should persist");
   assert(updatedPersona.voiceTone === "Updated smoke-test voice", "persona voice should persist");
   assert(updatedPersona.platformStatus === "active", "persona platform status should normalize mock to active");
+  assert(updatedPersona.userEdited === true, "persona edit should mark userEdited");
+  assert(updatedPersona.lockedFromSeedOverwrite === true, "persona edit should lock seed overwrite");
 
   const configuredPersona = await api(`/api/personas/${personas[0].id}`, {
     method: "PATCH",
@@ -205,6 +216,8 @@ try {
   assert(patchedQuery.query === "smoke updated active query", "persona query patch should persist query text");
   assert(patchedQuery.provider === "rss", "persona query patch should persist provider");
   assert(patchedQuery.weight === 5, "persona query patch should persist weight");
+  assert(patchedQuery.userEdited === true, "persona query patch should mark userEdited");
+  assert(patchedQuery.lockedFromSeedOverwrite === true, "persona query patch should lock seed overwrite");
   const toggledQueryPersona = await api(`/api/personas/${personas[0].id}/queries/${addedQuery.id}/toggle`, { method: "PATCH", body: "{}" });
   assert(toggledQueryPersona.queries.find((query) => query.id === addedQuery.id).isActive === false, "persona query toggle should deactivate query");
   const reactivatedQueryPersona = await api(`/api/personas/${personas[0].id}/queries/${addedQuery.id}/toggle`, { method: "PATCH", body: "{}" });
@@ -363,6 +376,15 @@ try {
   });
   assert(!mockRejectedDigest.providerNames.includes("mock"), "morning digest route should exclude mock provider unless explicitly allowed");
 
+  await api(`/api/personas/${personas[0].id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ platformStatus: "active" })
+  });
+  await api(`/api/personas/${personas[1].id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ platformStatus: "draft" })
+  });
+
   const providerDigest = await api("/api/hermes/morning-digest/run", {
     method: "POST",
     body: JSON.stringify({
@@ -384,7 +406,10 @@ try {
   assert(providerDigest.providerNames.includes("mock"), "provider-backed morning digest should report provider names");
   assert(providerDigest.topSignalsByPersona.every((persona) => persona.signalCount <= 2), "provider-backed morning digest should respect maxSignalsPerPersona");
   assert(providerDigest.attribution.provider === "lmstudio", "provider-backed morning digest should include attribution");
+  assert(providerDigest.skippedPersonaIds.includes(personas[1].id), "provider-backed morning digest should skip draft personas");
+  assert(!providerDigest.topSignalsByPersona.some((persona) => persona.personaId === personas[1].id), "skipped personas should not appear in digest selections");
   assert(JSON.stringify(providerDigest.topSignalsByPersona).includes("smoke updated active query"), "provider-backed morning digest should use active updated persona queries");
+  assert(!JSON.stringify(providerDigest.topSignalsByPersona).includes("Supreme Court ethics"), "provider-backed morning digest should skip inactive persona queries");
 
   const afterDeleteQueryPersona = await api(`/api/personas/${personas[0].id}/queries/${addedQuery.id}`, { method: "DELETE" });
   assert(!afterDeleteQueryPersona.queries.some((query) => query.id === addedQuery.id), "persona query delete should remove query from backend");
@@ -599,8 +624,8 @@ try {
   assert(actions.includes("persona_query.updated"), "audit log should include persona query update");
   assert(actions.includes("persona_query.toggled"), "audit log should include persona query toggle");
   assert(actions.includes("persona_query.deleted"), "audit log should include persona query delete");
-  const personaAudit = auditLog.find((entry) => entry.action === "persona.updated");
-  const queryAudit = auditLog.find((entry) => entry.action === "persona_query.created");
+  const personaAudit = auditLog.find((entry) => entry.action === "persona.updated" && entry.metadata?.personaId === personas[0].id);
+  const queryAudit = auditLog.find((entry) => entry.action === "persona_query.created" && entry.metadata?.personaId === personas[0].id);
   assert(personaAudit?.metadata?.personaId === personas[0].id, "persona audit metadata should include personaId");
   assert(queryAudit?.metadata?.personaId === personas[0].id && queryAudit?.metadata?.queryId, "query audit metadata should include personaId and queryId");
   assert(actions.includes("hermes.import.completed"), "audit log should include Hermes import");

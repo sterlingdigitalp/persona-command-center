@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
 export const dbPath = process.env.DB_PATH || path.join(rootDir, "data", "persona-command-center.sqlite");
+const seedPersonaIds = ["the-wonkette", "policy-pete", "maga-memester", "progressive-pat"];
 
 function sqliteArgs(sql, json = false) {
   const args = [];
@@ -40,12 +41,37 @@ export function newId(prefix) {
   return `${prefix}_${randomUUID()}`;
 }
 
+async function auditDb(action, entityType, entityId, metadata = {}) {
+  await execSql(`
+    INSERT INTO audit_log (id, actor, action, entity_type, entity_id, metadata)
+    VALUES (${sqlString(newId("audit"))}, 'system', ${sqlString(action)}, ${sqlString(entityType)}, ${sqlString(entityId)}, ${sqlJson(metadata)});
+  `);
+}
+
 export async function initDb() {
   const schema = await readFile(path.join(rootDir, "db", "schema.sql"), "utf8");
   const seed = await readFile(path.join(rootDir, "db", "seed.sql"), "utf8");
   await execSql(schema);
   await runMigrations();
+  const existingSeedPersonas = await querySql(`
+    SELECT id, user_edited, locked_from_seed_overwrite
+    FROM personas
+    WHERE id IN (${seedPersonaIds.map(sqlString).join(", ")});
+  `);
+  const existingById = new Map(existingSeedPersonas.map((row) => [row.id, row]));
   await execSql(seed);
+  for (const personaId of seedPersonaIds) {
+    const existing = existingById.get(personaId);
+    if (existing) {
+      await auditDb("seed.skipped_existing_persona", "persona", personaId, { reason: "insert_only_seed" });
+      await auditDb("persona.protected_from_seed", "persona", personaId, {
+        userEdited: Boolean(existing.user_edited),
+        lockedFromSeedOverwrite: Boolean(existing.locked_from_seed_overwrite)
+      });
+    } else {
+      await auditDb("seed.inserted_missing_persona", "persona", personaId, { reason: "missing_default" });
+    }
+  }
 }
 
 export function parseJsonField(value, fallback) {
@@ -104,6 +130,13 @@ async function runMigrations() {
   await addColumnIfMissing("persona_queries", "provider", "TEXT NOT NULL DEFAULT 'news'");
   await addColumnIfMissing("persona_queries", "weight", "INTEGER NOT NULL DEFAULT 1");
   await addColumnIfMissing("persona_queries", "updated_at", "TEXT");
+  await addColumnIfMissing("persona_queries", "user_edited", "INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing("persona_queries", "user_edited_at", "TEXT");
+  await addColumnIfMissing("persona_queries", "locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0");
+
+  await addColumnIfMissing("personas", "user_edited", "INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing("personas", "user_edited_at", "TEXT");
+  await addColumnIfMissing("personas", "locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0");
 
   await addColumnIfMissing("drafts", "original_body", "TEXT");
   await addColumnIfMissing("drafts", "edited_body", "TEXT");
@@ -146,7 +179,11 @@ async function runMigrations() {
     UPDATE drafts SET edited_body = body WHERE edited_body IS NULL;
     UPDATE scheduled_posts SET updated_at = created_at WHERE updated_at IS NULL;
     UPDATE persona_queries SET updated_at = created_at WHERE updated_at IS NULL;
-    UPDATE personas SET platform_status = 'active', updated_at = CURRENT_TIMESTAMP WHERE platform_status = 'mock';
+    UPDATE personas
+    SET platform_status = 'active', updated_at = CURRENT_TIMESTAMP
+    WHERE platform_status = 'mock'
+      AND COALESCE(user_edited, 0) = 0
+      AND COALESCE(locked_from_seed_overwrite, 0) = 0;
     UPDATE platform_accounts SET status = 'configured' WHERE status = 'mock';
     CREATE INDEX IF NOT EXISTS idx_signals_status ON signals(status, last_seen_at);
     CREATE INDEX IF NOT EXISTS idx_drafts_status ON drafts(status, updated_at);

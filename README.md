@@ -60,6 +60,8 @@ npm run init:db
 
 This creates or upgrades `data/persona-command-center.sqlite`, applies the idempotent schema in `db/schema.sql`, runs migrations, and seeds personas, persona queries, platform placeholders, and Hermes settings.
 
+Seed data is insert-only. Running database init after production persona edits will add missing default records, but it will not overwrite existing personas, search terms, or platform placeholders. Persona and search-term edits are marked with `userEdited`, `userEditedAt`, and `lockedFromSeedOverwrite` so future seed/setup logic can protect real configuration.
+
 Default Hermes settings:
 
 - Morning Digest enabled
@@ -86,8 +88,10 @@ Development reset for testing the empty first-run flow:
 ```bash
 curl -X POST http://127.0.0.1:3000/api/setup/reset-personas \
   -H 'content-type: application/json' \
-  -d '{"confirm":"RESET_PERSONAS"}'
+  -d '{"confirm":"DELETE_PERSONAS"}'
 ```
+
+The older `RESET_PERSONAS` phrase is intentionally rejected. Destructive reset is for development verification only and is logged as `destructive_reset.executed`.
 
 Verify the full first-run setup contract:
 
@@ -107,6 +111,13 @@ Editable persona fields:
 - voice / tone
 - platform status: `active`, `configured`, `draft`, or `disconnected`
 
+Automation status meanings:
+
+- `active`: persona is live and eligible for Hermes ingestion and draft generation.
+- `configured`: account/details exist, but this is not fully active automation yet.
+- `draft`: persona is still being built and does not feed provider-backed automation.
+- `disconnected`: account/platform is unavailable or intentionally disabled.
+
 Editable search term fields:
 
 - query text
@@ -114,12 +125,13 @@ Editable search term fields:
 - weight: `1` to `5`
 - active / inactive status
 
-Every persona save, query create, query update, query toggle, and query delete calls the backend and refreshes state from SQLite. Active persona queries feed the provider-backed Hermes morning digest immediately; no server restart is required. `GET /api/hermes/export` includes the current persona and query configuration so Hermes can see the same state the dashboard edits. Legacy `mock` persona/platform status values are normalized to real local states (`active` for personas, `configured` for platform account placeholders).
+Every persona save, query create, query update, query toggle, and query delete calls the backend and refreshes state from SQLite. Active personas with active persona queries feed the provider-backed Hermes morning digest immediately; no server restart is required. `GET /api/hermes/export` includes the current persona and query configuration so Hermes can see the same state the dashboard edits. Legacy `mock` persona/platform status values are normalized to real local states (`active` for personas, `configured` for platform account placeholders).
 
 Verify persistence:
 
 ```bash
 npm run verify:persona-persistence
+npm run verify:persona-protection
 npm run verify:frontend-save-path
 ```
 

@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS personas (
   niche TEXT NOT NULL,
   voice_tone TEXT NOT NULL,
   platform_status TEXT NOT NULL DEFAULT 'active',
+  user_edited INTEGER NOT NULL DEFAULT 0,
+  user_edited_at TEXT,
+  locked_from_seed_overwrite INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,6 +22,9 @@ CREATE TABLE IF NOT EXISTS persona_queries (
   provider TEXT NOT NULL DEFAULT 'news',
   weight INTEGER NOT NULL DEFAULT 1,
   is_active INTEGER NOT NULL DEFAULT 1,
+  user_edited INTEGER NOT NULL DEFAULT 0,
+  user_edited_at TEXT,
+  locked_from_seed_overwrite INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE

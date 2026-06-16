@@ -4,13 +4,7 @@ VALUES
   ('policy-pete', 'PolicyPete', '@PolicyPete', 'Plain-English policy explainers, budget tradeoffs, regulation, and civic systems.', 'Measured, explanatory, practical, and credible.', 'active'),
   ('maga-memester', 'MAGA Memester', '@MAGAMemester', 'Right-coded meme culture, conservative media moments, and populist internet humor.', 'Satirical, fast, meme-native, and careful around claims.', 'active'),
   ('progressive-pat', 'ProgressivePat', '@ProgressivePat', 'Progressive organizing, labor, climate, healthcare, and social justice policy.', 'Earnest, energized, values-led, and action-oriented.', 'active')
-ON CONFLICT(id) DO UPDATE SET
-  name = excluded.name,
-  handle = excluded.handle,
-  niche = excluded.niche,
-  voice_tone = excluded.voice_tone,
-  platform_status = excluded.platform_status,
-  updated_at = CURRENT_TIMESTAMP;
+ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO persona_queries (id, persona_id, query, source_type, provider, weight)
 VALUES
@@ -26,12 +20,7 @@ VALUES
   ('q-pat-labor', 'progressive-pat', 'labor unions strike worker protections', 'public_feed', 'news', 3),
   ('q-pat-housing', 'progressive-pat', 'housing affordability rent control tenants', 'public_feed', 'news', 3),
   ('q-pat-climate', 'progressive-pat', 'climate policy clean energy jobs', 'public_feed', 'rss', 2)
-ON CONFLICT(id) DO UPDATE SET
-  query = excluded.query,
-  source_type = excluded.source_type,
-  provider = excluded.provider,
-  weight = excluded.weight,
-  is_active = 1;
+ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO platform_accounts (id, persona_id, platform, handle, status, adapter_notes)
 VALUES
@@ -39,10 +28,7 @@ VALUES
   ('pa-pete-x', 'policy-pete', 'x', '@PolicyPete', 'configured', 'Future X API publishing adapter connects here.'),
   ('pa-maga-x', 'maga-memester', 'x', '@MAGAMemester', 'configured', 'Future X API publishing adapter connects here.'),
   ('pa-pat-x', 'progressive-pat', 'x', '@ProgressivePat', 'configured', 'Future X API publishing adapter connects here.')
-ON CONFLICT(id) DO UPDATE SET
-  handle = excluded.handle,
-  status = excluded.status,
-  adapter_notes = excluded.adapter_notes;
+ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO hermes_settings (key, value)
 VALUES
