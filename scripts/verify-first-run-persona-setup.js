@@ -108,7 +108,7 @@ try {
 
   const reset = await api("/api/setup/reset-personas", {
     method: "POST",
-    body: JSON.stringify({ confirm: "RESET_PERSONAS" })
+    body: JSON.stringify({ confirm: "DELETE_PERSONAS" })
   });
   addCheck("reset reports uninitialized", reset.personasInitialized === false && reset.personaCount === 0, JSON.stringify(reset));
 

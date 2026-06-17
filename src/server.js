@@ -224,7 +224,7 @@ async function getPersonas({ includeInactiveQueries = false } = {}) {
   ));
 }
 
-async function getPersona(personaId, { includeInactiveQueries = true } = {}) {
+async function getPersonaById(personaId, { includeInactiveQueries = true } = {}) {
   const personas = await querySql(`SELECT * FROM personas WHERE id = ${sqlString(personaId)} LIMIT 1;`);
   if (!personas.length) return null;
   const queryWhere = includeInactiveQueries ? "" : "AND is_active = 1";
@@ -236,6 +236,10 @@ async function getPersona(personaId, { includeInactiveQueries = true } = {}) {
     ORDER BY rowid;
   `);
   return mapPersona(personas[0], queries.map(mapPersonaQuery));
+}
+
+async function getPersona(personaId, options = {}) {
+  return getPersonaById(personaId, options);
 }
 
 async function getSetupStatus() {
@@ -320,8 +324,7 @@ async function updateSignal(signalId, payload) {
 }
 
 async function updatePersona(personaId, payload) {
-  const existing = await querySql(`SELECT * FROM personas WHERE id = ${sqlString(personaId)} LIMIT 1;`);
-  if (!existing.length) return null;
+  if (!(await getPersonaById(personaId))) return null;
   const normalized = normalizePersonaPayload(payload);
 
   await execSql(`
@@ -373,11 +376,11 @@ async function updatePersona(personaId, payload) {
   }
 
   await audit("persona.updated", "persona", personaId, { personaId, fields: Object.keys(payload) });
-  return getPersona(personaId);
+  return getPersonaById(personaId);
 }
 
 async function addPersonaQuery(personaId, payload) {
-  if (!(await getPersona(personaId))) return null;
+  if (!(await getPersonaById(personaId))) return null;
   const query = normalizeQueryPayload(payload, { partial: false });
   const queryId = newId("query");
   await execSql(`
@@ -393,7 +396,7 @@ async function addPersonaQuery(personaId, payload) {
     );
   `);
   await audit("persona_query.created", "persona_query", queryId, { personaId, queryId });
-  return getPersona(personaId);
+  return getPersonaById(personaId);
 }
 
 async function deletePersonaQuery(personaId, queryId) {
@@ -404,7 +407,7 @@ async function deletePersonaQuery(personaId, queryId) {
     WHERE id = ${sqlString(queryId)} AND persona_id = ${sqlString(personaId)};
   `);
   await audit("persona_query.deleted", "persona_query", queryId, { personaId, queryId });
-  return getPersona(personaId);
+  return getPersonaById(personaId);
 }
 
 function validationError(message) {
@@ -606,7 +609,7 @@ async function getPersonaQuery(personaId, queryId) {
 }
 
 async function updatePersonaQuery(personaId, queryId, payload) {
-  if (!(await getPersona(personaId))) return null;
+  if (!(await getPersonaById(personaId))) return null;
   if (!(await getPersonaQuery(personaId, queryId))) return null;
   const query = normalizeQueryPayload(payload, { partial: true });
   await execSql(`
@@ -624,7 +627,7 @@ async function updatePersonaQuery(personaId, queryId, payload) {
     WHERE persona_id = ${sqlString(personaId)} AND id = ${sqlString(queryId)};
   `);
   await audit("persona_query.updated", "persona_query", queryId, { personaId, queryId, fields: Object.keys(payload) });
-  return getPersona(personaId);
+  return getPersonaById(personaId);
 }
 
 async function togglePersonaQuery(personaId, queryId) {
@@ -640,7 +643,7 @@ async function togglePersonaQuery(personaId, queryId) {
     WHERE persona_id = ${sqlString(personaId)} AND id = ${sqlString(queryId)};
   `);
   await audit("persona_query.toggled", "persona_query", queryId, { personaId, queryId, isActive: !existing.isActive });
-  return getPersona(personaId);
+  return getPersonaById(personaId);
 }
 
 async function getHermesSettings() {
@@ -1252,6 +1255,14 @@ async function cancelScheduledPost(postId) {
   return updated;
 }
 
+function decodePathPart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/health") {
     sendJson(res, 200, { ok: true, service: "persona-command-center", phase: 4 });
@@ -1280,7 +1291,7 @@ async function routeApi(req, res, url) {
 
   const personaGetMatch = url.pathname.match(/^\/api\/personas\/([^/]+)$/);
   if (req.method === "GET" && personaGetMatch) {
-    const persona = await getPersona(personaGetMatch[1]);
+    const persona = await getPersonaById(decodePathPart(personaGetMatch[1]));
     if (!persona) sendJson(res, 404, { error: "Persona not found" });
     else sendJson(res, 200, persona);
     return;
@@ -1288,7 +1299,7 @@ async function routeApi(req, res, url) {
 
   const personaUpdateMatch = url.pathname.match(/^\/api\/personas\/([^/]+)$/);
   if ((req.method === "POST" || req.method === "PATCH") && personaUpdateMatch) {
-    const updated = await updatePersona(personaUpdateMatch[1], await readJson(req));
+    const updated = await updatePersona(decodePathPart(personaUpdateMatch[1]), await readJson(req));
     if (!updated) sendJson(res, 404, { error: "Persona not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1296,7 +1307,7 @@ async function routeApi(req, res, url) {
 
   const personaQueryMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/queries$/);
   if (req.method === "POST" && personaQueryMatch) {
-    const updated = await addPersonaQuery(personaQueryMatch[1], await readJson(req));
+    const updated = await addPersonaQuery(decodePathPart(personaQueryMatch[1]), await readJson(req));
     if (!updated) sendJson(res, 404, { error: "Persona not found" });
     else sendJson(res, 201, updated);
     return;
@@ -1304,7 +1315,7 @@ async function routeApi(req, res, url) {
 
   const personaQueryPatchMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/queries\/([^/]+)$/);
   if (req.method === "PATCH" && personaQueryPatchMatch) {
-    const updated = await updatePersonaQuery(personaQueryPatchMatch[1], personaQueryPatchMatch[2], await readJson(req));
+    const updated = await updatePersonaQuery(decodePathPart(personaQueryPatchMatch[1]), decodePathPart(personaQueryPatchMatch[2]), await readJson(req));
     if (!updated) sendJson(res, 404, { error: "Persona query not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1312,7 +1323,7 @@ async function routeApi(req, res, url) {
 
   const personaQueryToggleMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/queries\/([^/]+)\/toggle$/);
   if (req.method === "PATCH" && personaQueryToggleMatch) {
-    const updated = await togglePersonaQuery(personaQueryToggleMatch[1], personaQueryToggleMatch[2]);
+    const updated = await togglePersonaQuery(decodePathPart(personaQueryToggleMatch[1]), decodePathPart(personaQueryToggleMatch[2]));
     if (!updated) sendJson(res, 404, { error: "Persona query not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1320,7 +1331,7 @@ async function routeApi(req, res, url) {
 
   const personaQueryDeleteMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/queries\/([^/]+)$/);
   if (req.method === "DELETE" && personaQueryDeleteMatch) {
-    const updated = await deletePersonaQuery(personaQueryDeleteMatch[1], personaQueryDeleteMatch[2]);
+    const updated = await deletePersonaQuery(decodePathPart(personaQueryDeleteMatch[1]), decodePathPart(personaQueryDeleteMatch[2]));
     if (!updated) sendJson(res, 404, { error: "Persona not found" });
     else sendJson(res, 200, updated);
     return;

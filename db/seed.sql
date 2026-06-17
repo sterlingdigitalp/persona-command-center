@@ -11,7 +11,7 @@ VALUES
   ('q-wonkette-courts', 'the-wonkette', 'Supreme Court ethics Congress campaign finance', 'public_feed', 'news', 3),
   ('q-wonkette-campaigns', 'the-wonkette', '2026 midterms polling legal challenges', 'public_feed', 'rss', 2),
   ('q-wonkette-institutions', 'the-wonkette', 'DOJ oversight election law watchdog', 'public_feed', 'news', 2),
-  ('q-pete-climate', 'policy-pete', 'climate policy implementation budget', 'public_feed', 'news', 3),
+  ('q-pete-budget', 'policy-pete', 'federal budget reconciliation tax credits', 'public_feed', 'news', 1),
   ('q-pete-education', 'policy-pete', 'education policy student loans schools', 'public_feed', 'news', 3),
   ('q-pete-health', 'policy-pete', 'healthcare costs Medicaid Medicare policy', 'public_feed', 'rss', 2),
   ('q-maga-media', 'maga-memester', 'conservative media viral clip campaign rally', 'public_feed', 'news', 3),

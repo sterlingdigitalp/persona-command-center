@@ -173,6 +173,50 @@ try {
   assert(personas.length === 4, "expected four seeded personas");
   assert(personas.some((persona) => persona.name === "The Wonkette"), "expected The Wonkette seed");
   assert(personas.every((persona) => persona.platformStatus !== "mock"), "seeded personas should not use mock platform status");
+  for (const persona of personas) {
+    const detail = await api(`/api/personas/${encodeURIComponent(persona.id)}`);
+    assert(detail.id === persona.id, `persona detail route should work for ${persona.id}`);
+  }
+  const policyPete = personas.find((persona) => persona.id === "policy-pete");
+  assert(policyPete, "policy-pete should exist in seeded personas");
+  const policyPeteDetail = await api("/api/personas/policy-pete");
+  assert(policyPeteDetail.id === "policy-pete", "policy-pete detail endpoint should work");
+  const policyPetePatched = await api("/api/personas/policy-pete", {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: "PolicyPete Route Check",
+      handle: policyPete.handle,
+      niche: policyPete.niche,
+      voiceTone: policyPete.voiceTone,
+      platformStatus: policyPete.platformStatus || "active"
+    })
+  });
+  assert(policyPetePatched.id === "policy-pete" && policyPetePatched.name === "PolicyPete Route Check", "policy-pete PATCH endpoint should work");
+  await api("/api/personas/policy-pete", {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: policyPete.name,
+      handle: policyPete.handle,
+      niche: policyPete.niche,
+      voiceTone: policyPete.voiceTone,
+      platformStatus: policyPete.platformStatus || "active"
+    })
+  });
+  const budgetQuery = (policyPete.queries || []).find((query) => query.id === "q-pete-budget");
+  assert(budgetQuery, "q-pete-budget should exist for policy-pete");
+  const patchedBudgetQueryPersona = await api("/api/personas/policy-pete/queries/q-pete-budget", {
+    method: "PATCH",
+    body: JSON.stringify({
+      query: "federal budget reconciliation tax credits",
+      provider: "news",
+      weight: 1,
+      isActive: true
+    })
+  });
+  assert(
+    patchedBudgetQueryPersona.queries.some((query) => query.id === "q-pete-budget" && query.query === "federal budget reconciliation tax credits"),
+    "policy-pete q-pete-budget PATCH endpoint should work"
+  );
 
   const updatedPersona = await api(`/api/personas/${personas[0].id}`, {
     method: "PATCH",

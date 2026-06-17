@@ -476,55 +476,44 @@
 
     .search-term-section {
       display: grid;
-      gap: 14px;
-      margin-top: 22px;
-      padding-top: 18px;
-      border-top: 1px solid var(--line-soft);
+      gap: 10px;
+      margin-top: 0;
     }
 
-    .search-term-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
+    .search-term-field {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.58);
+      padding: 12px;
+      color: var(--text);
+      font-weight: 400;
     }
 
-    .search-term-header h3 {
-      margin: 0;
-      font-size: 18px;
+    .search-term-display-list {
+      display: grid;
+      gap: 8px;
     }
 
-    .query-list {
+    .search-term-display-item {
       display: grid;
       gap: 2px;
-    }
-
-    .query-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-      width: 100%;
-      max-width: 100%;
-      padding: 12px 0;
+      min-width: 0;
+      padding-bottom: 8px;
       border-top: 1px solid var(--line-soft);
     }
 
-    .query-row:first-child {
+    .search-term-display-item:first-child {
       border-top: 0;
     }
 
-    .query-row-new {
-      align-items: start;
+    .search-term-display-item:last-child {
+      padding-bottom: 0;
     }
 
-    .query-main {
-      display: grid;
-      gap: 4px;
-      min-width: 0;
-    }
-
-    .query-phrase {
+    .search-term-phrase {
       margin: 0;
       color: var(--text);
       font-size: 15px;
@@ -532,45 +521,85 @@
       overflow-wrap: anywhere;
     }
 
-    .query-meta,
+    .search-term-edit-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .search-term-edit-row {
+      display: grid;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .search-term-edit-row:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
     .search-term-meta {
       color: var(--muted);
       font-size: 12px;
       line-height: 1.4;
+      font-weight: 500;
     }
 
-    .query-edit-grid {
+    .search-term-meta-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 96px 76px 88px;
+      grid-template-columns: minmax(0, 120px) minmax(0, 94px) minmax(0, 92px) auto;
       gap: 8px;
-      align-items: end;
+      align-items: center;
       width: 100%;
       max-width: 100%;
     }
 
-    .query-phrase-input {
-      min-width: 0;
+    .search-term-meta-row label {
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
     }
 
-    .query-small-select {
+    .search-term-small-control {
       min-width: 0;
       padding: 9px 8px;
     }
 
-    .query-actions {
+    .search-term-check {
       display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: flex-start;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
     }
 
-    .query-actions .btn {
-      min-height: 30px;
-      padding: 0 10px;
+    .search-term-check input {
+      width: auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    .search-term-remove {
+      align-self: end;
+      justify-self: end;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 0;
+      font: inherit;
       font-size: 13px;
     }
 
-    label {
+    .search-term-remove:hover {
+      color: var(--text);
+    }
+
+    label,
+    .field-label {
       display: grid;
       gap: 7px;
       color: var(--muted);
@@ -774,16 +803,8 @@
         gap: 8px;
       }
 
-      .query-row {
+      .search-term-meta-row {
         grid-template-columns: 1fr;
-      }
-
-      .query-edit-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .query-phrase-input {
-        grid-column: 1 / -1;
       }
 
       .status {
@@ -1112,11 +1133,12 @@
     let lastPersonaRequest = null;
     let lastPersonaResponse = null;
     let lastPersonaError = null;
+    let lastPersonaSaveRequest = null;
+    let lastPersonaSaveResponse = null;
     let lastFetchUrl = null;
     let lastFetchStatus = null;
     let lastFetchError = null;
     const personaEditorState = {};
-    const queryEditorState = {};
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -1125,6 +1147,10 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+    }
+
+    function jsArg(value) {
+      return escapeHtml(JSON.stringify(String(value ?? "")));
     }
 
     function priorityClass(priority) {
@@ -1166,6 +1192,15 @@
 
     function apiUrl(path) {
       return `${API_BASE}${path}`;
+    }
+
+    function personaApiPath(personaId) {
+      return `/api/personas/${encodeURIComponent(String(personaId))}`;
+    }
+
+    function personaQueryApiPath(personaId, queryId = "") {
+      const base = `${personaApiPath(personaId)}/queries`;
+      return queryId ? `${base}/${encodeURIComponent(String(queryId))}` : base;
     }
 
     function setAppMode(mode) {
@@ -1291,74 +1326,59 @@
       document.getElementById("personaCards").innerHTML = cards;
     }
 
-    function renderPersonaQueryEdit(personaId, queryId, draft, mode = "existing") {
-      const prefix = mode === "new" ? `new-query-${personaId}` : `query-${queryId}`;
+    function clonePersonaQueries(persona) {
+      return (persona?.queries || []).map((query) => ({
+        id: query.id,
+        query: query.query || "",
+        provider: query.provider || "news",
+        weight: Number(query.weight || 3),
+        isActive: query.isActive !== false
+      }));
+    }
+
+    function renderSearchTermsDisplay(queries) {
+      const items = queries.length ? queries : [];
       return `
-        <div class="query-edit-grid">
-          <label class="query-phrase-input">
-            Search Phrase
-            <input id="${prefix}-text" value="${escapeHtml(draft.query || "")}" placeholder="Search phrase">
-          </label>
-          <label>
-            Provider
-            <select class="query-small-select" id="${prefix}-provider">${queryProviderOptions(draft.provider || "news")}</select>
-          </label>
-          <label>
-            Weight
-            <select class="query-small-select" id="${prefix}-weight">${queryWeightOptions(draft.weight || 3)}</select>
-          </label>
-          <label>
-            Active
-            <select class="query-small-select" id="${prefix}-active">
-              <option value="true" ${draft.isActive !== false ? "selected" : ""}>Active</option>
-              <option value="false" ${draft.isActive === false ? "selected" : ""}>Inactive</option>
-            </select>
-          </label>
+        <div class="search-term-field" aria-label="Search terms">
+          <div class="search-term-display-list">
+            ${items.length ? items.map((query) => `
+              <div class="search-term-display-item">
+                <p class="search-term-phrase">${escapeHtml(query.query || "")}</p>
+                <span class="search-term-meta">${escapeHtml(query.provider || "news")} · weight ${query.weight || 1} · ${query.isActive ? "active" : "inactive"}</span>
+              </div>
+            `).join("") : `<p class="field-help">No search terms yet.</p>`}
+          </div>
         </div>
       `;
     }
 
-    function renderPersonaQueryRow(personaId, query) {
-      const state = queryEditorState[query.id] || {};
-      const editing = Boolean(state.editing);
-      const draft = editing && state.draft ? state.draft : query;
+    function renderSearchTermsEdit(personaId, queries) {
+      const personaIdArg = jsArg(personaId);
       return `
-        <article class="query-row" data-query-id="${escapeHtml(query.id)}">
-          ${editing ? `
-            ${renderPersonaQueryEdit(personaId, query.id, draft)}
-            ${state.error ? `<p class="field-help">${escapeHtml(state.error)}</p>` : ""}
-            <div class="query-actions">
-              <button type="button" class="btn secondary" onclick="savePersonaQuery('${personaId}', '${query.id}')">Save</button>
-              <button type="button" class="btn link" onclick="cancelPersonaQueryEdit('${query.id}')">Cancel</button>
-              <button type="button" class="btn link" onclick="deletePersonaQuery('${personaId}', '${query.id}')">Delete</button>
-            </div>
-          ` : `
-            <div class="query-main">
-              <p class="query-phrase">${escapeHtml(query.query || "")}</p>
-              <div class="query-meta">Provider: ${escapeHtml(query.provider || "news")} · Weight: ${query.weight || 1} · ${query.isActive ? "Active" : "Inactive"}</div>
-            </div>
-            <div class="query-actions">
-              <button type="button" class="btn secondary" onclick="editPersonaQuery('${query.id}')">Edit</button>
-              <button type="button" class="btn link" onclick="togglePersonaQuery('${personaId}', '${query.id}')">${query.isActive ? "Deactivate" : "Activate"}</button>
-              <button type="button" class="btn link" onclick="deletePersonaQuery('${personaId}', '${query.id}')">Delete</button>
-            </div>
-          `}
-        </article>
-      `;
-    }
-
-    function renderNewPersonaQueryRow(personaId) {
-      return `
-        <article class="query-row query-row-new">
-          <div class="query-main">
-            <p class="query-phrase">Add Search Term</p>
-            <span class="query-meta">Provider and weight persist to SQLite</span>
-            ${renderPersonaQueryEdit(personaId, "new", { query: "", provider: "news", weight: 3, isActive: true }, "new")}
+        <div class="search-term-field">
+          <div class="search-term-edit-list">
+            ${queries.map((query, index) => `
+              <div class="search-term-edit-row" data-query-index="${index}">
+                <input id="query-${escapeHtml(personaId)}-${index}-text" value="${escapeHtml(query.query || "")}" placeholder="Search phrase" oninput="markPersonaDirty(${personaIdArg})">
+                <div class="search-term-meta-row">
+                  <label>
+                    Provider
+                    <select class="search-term-small-control" id="query-${escapeHtml(personaId)}-${index}-provider" onchange="markPersonaDirty(${personaIdArg})">${queryProviderOptions(query.provider || "news")}</select>
+                  </label>
+                  <label>
+                    Weight
+                    <select class="search-term-small-control" id="query-${escapeHtml(personaId)}-${index}-weight" onchange="markPersonaDirty(${personaIdArg})">${queryWeightOptions(query.weight || 3)}</select>
+                  </label>
+                  <label class="search-term-check">
+                    <input id="query-${escapeHtml(personaId)}-${index}-active" type="checkbox" ${query.isActive !== false ? "checked" : ""} onchange="markPersonaDirty(${personaIdArg})">
+                    Active
+                  </label>
+                  <button type="button" class="search-term-remove" onclick="removePersonaQueryDraft(${personaIdArg}, ${index})">Remove</button>
+                </div>
+              </div>
+            `).join("") || `<p class="field-help">Add at least one search term for ingestion.</p>`}
           </div>
-          <div class="query-actions">
-            <button type="button" class="btn secondary" onclick="addPersonaQuery('${personaId}')">Add term</button>
-          </div>
-        </article>
+        </div>
       `;
     }
 
@@ -1392,12 +1412,14 @@
         const editing = Boolean(state.editing);
         const disabled = editing ? "" : "disabled";
         const queries = persona.queries || [];
+        const personaIdArg = jsArg(persona.id);
         const draft = editing && state.draft ? state.draft : {
           name: persona.name,
           handle: persona.handle || persona.account,
           niche: persona.niche,
           voiceTone: persona.voiceTone,
-          platformStatus: persona.platformStatus
+          platformStatus: persona.platformStatus,
+          queries: clonePersonaQueries(persona)
         };
         return `
         <article class="card">
@@ -1411,43 +1433,40 @@
           <div class="form">
             <label>
               Name
-              <input id="name-${persona.id}" value="${escapeHtml(draft.name || "")}" ${disabled} oninput="markPersonaDirty('${persona.id}')">
+              <input id="name-${escapeHtml(persona.id)}" value="${escapeHtml(draft.name || "")}" ${disabled} oninput="markPersonaDirty(${personaIdArg})">
             </label>
             <label>
               X account
-              <input id="handle-${persona.id}" value="${escapeHtml(draft.handle || "")}" ${disabled} oninput="markPersonaDirty('${persona.id}')">
+              <input id="handle-${escapeHtml(persona.id)}" value="${escapeHtml(draft.handle || "")}" ${disabled} oninput="markPersonaDirty(${personaIdArg})">
             </label>
             <label>
               Interest
-              <textarea id="niche-${persona.id}" ${disabled} oninput="markPersonaDirty('${persona.id}')" aria-label="${escapeHtml(persona.name)} interest">${escapeHtml(draft.niche || "")}</textarea>
+              <textarea id="niche-${escapeHtml(persona.id)}" ${disabled} oninput="markPersonaDirty(${personaIdArg})" aria-label="${escapeHtml(persona.name)} interest">${escapeHtml(draft.niche || "")}</textarea>
             </label>
             <label>
               Voice
-              <textarea id="voice-${persona.id}" ${disabled} oninput="markPersonaDirty('${persona.id}')" aria-label="${escapeHtml(persona.name)} voice">${escapeHtml(draft.voiceTone || "")}</textarea>
+              <textarea id="voice-${escapeHtml(persona.id)}" ${disabled} oninput="markPersonaDirty(${personaIdArg})" aria-label="${escapeHtml(persona.name)} voice">${escapeHtml(draft.voiceTone || "")}</textarea>
             </label>
             <label>
               Automation Status
-              <select id="platform-${persona.id}" ${disabled} onchange="markPersonaDirty('${persona.id}')">
+              <select id="platform-${escapeHtml(persona.id)}" ${disabled} onchange="markPersonaDirty(${personaIdArg})">
                 ${platformStatusOptions(draft.platformStatus)}
               </select>
               <span class="field-help">Active personas are included in Hermes ingestion. Draft or disconnected personas are skipped.</span>
             </label>
+            <section class="search-term-section" aria-label="${escapeHtml(persona.name)} search terms">
+              <div class="field-label">
+                Search Terms
+                ${editing ? renderSearchTermsEdit(persona.id, draft.queries || []) : renderSearchTermsDisplay(queries)}
+              </div>
+              ${editing ? `<button type="button" class="btn link" onclick="addPersonaQueryDraft(${personaIdArg})">Add search term</button>` : ""}
+            </section>
             <div class="button-row">
               ${editing
-                ? `<button type="button" class="btn secondary" onclick="savePersona('${persona.id}')">Save</button><button type="button" class="btn link" onclick="cancelPersonaEdit('${persona.id}')">Cancel</button>`
-                : `<button type="button" class="btn secondary" onclick="editPersona('${persona.id}')">Edit</button>`}
+                ? `<button type="button" class="btn secondary" onclick="savePersona(${personaIdArg})">Save</button><button type="button" class="btn link" onclick="cancelPersonaEdit(${personaIdArg})">Cancel</button>`
+                : `<button type="button" class="btn secondary" onclick="editPersona(${personaIdArg})">Edit</button>`}
             </div>
             ${state.error ? `<p class="niche">${escapeHtml(state.error)}</p>` : ""}
-            <section class="search-term-section" aria-label="${escapeHtml(persona.name)} search terms">
-              <div class="search-term-header">
-                <h3>Search Terms</h3>
-                <span class="search-term-meta">${queries.filter((query) => query.isActive).length} active · ${queries.length} total</span>
-              </div>
-              <div class="query-list">
-                ${queries.map((query) => renderPersonaQueryRow(persona.id, query)).join("") || `<p class="niche">No search terms yet.</p>`}
-                ${renderNewPersonaQueryRow(persona.id)}
-              </div>
-            </section>
           </div>
         </article>
       `;
@@ -1649,7 +1668,11 @@
         if (debug) debug.lastFetchStatus = response.status;
         const text = await response.text();
         if (!response.ok) {
-          throw new Error(`${response.status} ${text || response.statusText}`);
+          const error = new Error(`${response.status} ${text || response.statusText}`);
+          error.status = response.status;
+          error.text = text || response.statusText;
+          error.url = url;
+          throw error;
         }
         return text ? JSON.parse(text) : {};
       } catch (error) {
@@ -2029,7 +2052,8 @@
           handle: persona?.handle || persona?.account || "",
           niche: persona?.niche || "",
           voiceTone: persona?.voiceTone || "",
-          platformStatus: normalizedPlatformStatus(persona?.platformStatus)
+          platformStatus: normalizedPlatformStatus(persona?.platformStatus),
+          queries: clonePersonaQueries(persona)
         }
       };
       renderPersonaEditors();
@@ -2053,18 +2077,22 @@
         handle: document.getElementById(`handle-${personaId}`)?.value || "",
         niche: document.getElementById(`niche-${personaId}`)?.value || "",
         voiceTone: document.getElementById(`voice-${personaId}`)?.value || "",
-        platformStatus: document.getElementById(`platform-${personaId}`)?.value || "active"
+        platformStatus: document.getElementById(`platform-${personaId}`)?.value || "active",
+        queries: readPersonaQueryDrafts(personaId)
       };
     }
 
-    function readPersonaQueryDraft(queryId) {
-      const prefix = `query-${queryId}`;
-      return {
-        query: document.getElementById(`${prefix}-text`)?.value || "",
-        provider: document.getElementById(`${prefix}-provider`)?.value || "news",
-        weight: document.getElementById(`${prefix}-weight`)?.value || 3,
-        isActive: document.getElementById(`${prefix}-active`)?.value !== "false"
-      };
+    function readPersonaQueryDrafts(personaId) {
+      const persona = personas.find((item) => item.id === personaId);
+      const state = personaEditorState[personaId] || {};
+      const source = state.draft?.queries || clonePersonaQueries(persona);
+      return source.map((query, index) => ({
+        id: query.id,
+        query: document.getElementById(`query-${personaId}-${index}-text`)?.value ?? query.query ?? "",
+        provider: document.getElementById(`query-${personaId}-${index}-provider`)?.value ?? query.provider ?? "news",
+        weight: Number(document.getElementById(`query-${personaId}-${index}-weight`)?.value ?? query.weight ?? 3),
+        isActive: document.getElementById(`query-${personaId}-${index}-active`)?.checked ?? query.isActive !== false
+      }));
     }
 
     function readNewPersonaQueryDraft(personaId) {
@@ -2077,51 +2105,108 @@
       };
     }
 
-    function findPersonaQuery(queryId) {
-      for (const persona of personas) {
-        const query = (persona.queries || []).find((item) => item.id === queryId);
-        if (query) return query;
-      }
-      return null;
+    function syncPersonaDraftFromDom(personaId) {
+      const state = personaEditorState[personaId];
+      if (!state?.editing) return null;
+      const draft = readPersonaDraft(personaId);
+      personaEditorState[personaId] = { ...state, draft };
+      return draft;
     }
 
-    function editPersonaQuery(queryId) {
-      const query = findPersonaQuery(queryId);
-      if (!query) return;
-      queryEditorState[queryId] = {
-        editing: true,
-        error: "",
-        draft: {
-          query: query.query || "",
-          provider: query.provider || "news",
-          weight: query.weight || 3,
-          isActive: query.isActive !== false
+    function addPersonaQueryDraft(personaId) {
+      const draft = syncPersonaDraftFromDom(personaId);
+      if (!draft) return;
+      draft.queries.push({
+        tempId: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        query: "",
+        provider: "news",
+        weight: 3,
+        isActive: true
+      });
+      personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, dirty: true, saved: false, error: "", draft };
+      renderPersonaEditors();
+    }
+
+    function removePersonaQueryDraft(personaId, index) {
+      const draft = syncPersonaDraftFromDom(personaId);
+      if (!draft) return;
+      draft.queries.splice(index, 1);
+      personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, dirty: true, saved: false, error: "", draft };
+      renderPersonaEditors();
+    }
+
+    function queriesEqual(original, draft) {
+      return String(original.query || "") === String(draft.query || "").trim()
+        && String(original.provider || "news") === String(draft.provider || "news")
+        && Number(original.weight || 1) === Number(draft.weight || 1)
+        && (original.isActive !== false) === (draft.isActive !== false);
+    }
+
+    async function savePersonaQueryDiff(personaId, originalQueries, draftQueries) {
+      const originalById = new Map(originalQueries.map((query) => [query.id, query]));
+      const draftExistingIds = new Set(draftQueries.filter((query) => query.id).map((query) => query.id));
+      for (const original of originalQueries) {
+        if (!draftExistingIds.has(original.id)) {
+          await apiFetch(personaQueryApiPath(personaId, original.id), { method: "DELETE" });
         }
-      };
-      renderPersonaEditors();
-    }
-
-    function cancelPersonaQueryEdit(queryId) {
-      queryEditorState[queryId] = { editing: false, error: "", draft: null };
-      renderPersonaEditors();
+      }
+      for (const draft of draftQueries) {
+        const payload = {
+          query: String(draft.query || "").trim(),
+          provider: draft.provider || "news",
+          weight: Number(draft.weight || 3),
+          isActive: draft.isActive !== false
+        };
+        if (!payload.query) continue;
+        if (draft.id && originalById.has(draft.id)) {
+          if (!queriesEqual(originalById.get(draft.id), payload)) {
+            await apiFetch(personaQueryApiPath(personaId, draft.id), {
+              method: "PATCH",
+              body: JSON.stringify(payload)
+            });
+          }
+        } else {
+          await apiFetch(personaQueryApiPath(personaId), {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+        }
+      }
     }
 
     async function savePersona(personaId) {
       const persona = personas.find((item) => item.id === personaId);
       if (!persona) return;
       const payload = readPersonaDraft(personaId);
-      lastPersonaRequest = { personaId, url: `/api/personas/${personaId}`, method: "PATCH", body: payload };
+      const personaPayload = {
+        name: payload.name,
+        handle: payload.handle,
+        niche: payload.niche,
+        voiceTone: payload.voiceTone,
+        platformStatus: payload.platformStatus
+      };
+      const saveUrl = personaApiPath(personaId);
+      lastPersonaRequest = { personaId, url: saveUrl, method: "PATCH", body: payload };
+      lastPersonaSaveRequest = { personaId, url: saveUrl, body: payload };
       lastPersonaResponse = null;
       lastPersonaError = null;
+      lastPersonaSaveResponse = null;
+      if (window.__pccDebug) {
+        window.__pccDebug.lastPersonaSaveRequest = lastPersonaSaveRequest;
+        window.__pccDebug.lastPersonaSaveResponse = null;
+      }
       console.info("Persona save request", lastPersonaRequest);
       personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, saving: true, error: "", draft: payload };
       renderPersonaEditors();
       try {
-        const updatedPersona = await apiFetch(`/api/personas/${personaId}`, {
+        const updatedPersona = await apiFetch(saveUrl, {
           method: "PATCH",
-          body: JSON.stringify(payload)
+          body: JSON.stringify(personaPayload)
         });
+        await savePersonaQueryDiff(personaId, persona.queries || [], payload.queries || []);
         lastPersonaResponse = updatedPersona;
+        lastPersonaSaveResponse = { status: 200, text: JSON.stringify(updatedPersona) };
+        if (window.__pccDebug) window.__pccDebug.lastPersonaSaveResponse = lastPersonaSaveResponse;
         personas = personas.map((item) => item.id === personaId ? {
           ...updatedPersona,
           account: updatedPersona.handle || updatedPersona.account,
@@ -2132,6 +2217,11 @@
         showToast(`${persona.name} saved.`);
       } catch (error) {
         lastPersonaError = error;
+        lastPersonaSaveResponse = {
+          status: error.status || null,
+          text: error.text || error.message
+        };
+        if (window.__pccDebug) window.__pccDebug.lastPersonaSaveResponse = lastPersonaSaveResponse;
         console.error("Persona save failed", error);
         personaEditorState[personaId] = { ...(personaEditorState[personaId] || {}), editing: true, saving: false, dirty: true, saved: false, error: error.message, draft: payload };
         renderPersonaEditors();
@@ -2139,64 +2229,40 @@
       }
     }
 
-    async function savePersonaQuery(personaId, queryId) {
-      const persona = personas.find((item) => item.id === personaId);
-      const payload = readPersonaQueryDraft(queryId);
-      queryEditorState[queryId] = { ...(queryEditorState[queryId] || {}), editing: true, error: "", draft: payload };
-      try {
-        await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload)
-        });
-        queryEditorState[queryId] = { editing: false, error: "", draft: null };
-        await loadBackendData();
-        showToast("Search term saved.");
-      } catch (error) {
-        queryEditorState[queryId] = { editing: true, error: error.message, draft: payload };
-        renderPersonaEditors();
-        showToast(error.message || `Could not save ${persona ? persona.name : "search term"}.`);
-      }
+    async function updatePersonaQuery(personaId, queryId, payload) {
+      const updated = await apiFetch(personaQueryApiPath(personaId, queryId), {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      await loadBackendData();
+      return updated;
     }
 
-    async function addPersonaQuery(personaId) {
-      const payload = readNewPersonaQueryDraft(personaId);
-      try {
-        await apiFetch(`/api/personas/${personaId}/queries`, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        await loadBackendData();
-        showToast("Search term added.");
-      } catch (error) {
-        showToast(error.message || "Could not add search term.");
-      }
+    async function addPersonaQuery(personaId, payload = { query: "", provider: "news", weight: 3, isActive: true }) {
+      const updated = await apiFetch(personaQueryApiPath(personaId), {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      await loadBackendData();
+      return updated;
     }
 
     async function deletePersonaQuery(personaId, queryId) {
-      try {
-        await apiFetch(`/api/personas/${personaId}/queries/${queryId}`, { method: "DELETE" });
-        delete queryEditorState[queryId];
-        await loadBackendData();
-        showToast("Search term deleted.");
-      } catch {
-        showToast("Could not delete search term.");
-      }
+      const updated = await apiFetch(personaQueryApiPath(personaId, queryId), { method: "DELETE" });
+      await loadBackendData();
+      return updated;
     }
 
     async function togglePersonaQuery(personaId, queryId) {
-      try {
-        await apiFetch(`/api/personas/${personaId}/queries/${queryId}/toggle`, { method: "PATCH", body: "{}" });
-        await loadBackendData();
-        showToast("Search term updated.");
-      } catch {
-        showToast("Could not update search term.");
-      }
+      const updated = await apiFetch(`${personaQueryApiPath(personaId, queryId)}/toggle`, { method: "PATCH", body: "{}" });
+      await loadBackendData();
+      return updated;
     }
 
     async function testPersonaSave(personaId = "the-wonkette") {
-      const original = await apiFetch(`/api/personas/${personaId}`);
+      const original = await apiFetch(personaApiPath(personaId));
       const marker = `PCC Browser Save Test ${Date.now()}`;
-      const patched = await apiFetch(`/api/personas/${personaId}`, {
+      const patched = await apiFetch(personaApiPath(personaId), {
         method: "PATCH",
         body: JSON.stringify({
           name: marker,
@@ -2206,8 +2272,8 @@
           platformStatus: original.platformStatus || "active"
         })
       });
-      const persisted = await apiFetch(`/api/personas/${personaId}`);
-      await apiFetch(`/api/personas/${personaId}`, {
+      const persisted = await apiFetch(personaApiPath(personaId));
+      await apiFetch(personaApiPath(personaId), {
         method: "PATCH",
         body: JSON.stringify({
           name: original.name,
@@ -2223,12 +2289,23 @@
       return { pass, personaId, patched, persisted };
     }
 
+    function listPersonaIds() {
+      return personas.map((persona, index) => ({
+        index,
+        name: persona.name,
+        handle: persona.handle || persona.account,
+        id: persona.id
+      }));
+    }
+
     window.__pccDebug = {
       apiBase: API_BASE,
       frontendBuild: PCC_FRONTEND_BUILD,
       lastFetchUrl: null,
       lastFetchStatus: null,
       lastFetchError: null,
+      lastPersonaSaveRequest: null,
+      lastPersonaSaveResponse: null,
       get backendPersonas() { return personas; },
       get personas() { return personas; },
       get setupStatus() { return setupStatus; },
@@ -2236,11 +2313,14 @@
       get lastPersonaRequest() { return lastPersonaRequest; },
       get lastPersonaResponse() { return lastPersonaResponse; },
       get lastPersonaError() { return lastPersonaError; },
+      get latestPersonaSaveRequest() { return lastPersonaSaveRequest; },
+      get latestPersonaSaveResponse() { return lastPersonaSaveResponse; },
       initializePersonas,
       savePersona,
       reloadPersonas,
+      listPersonaIds,
       addPersonaQuery,
-      updatePersonaQuery: savePersonaQuery,
+      updatePersonaQuery,
       deletePersonaQuery,
       togglePersonaQuery,
       testBackend,
