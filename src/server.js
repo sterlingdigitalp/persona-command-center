@@ -815,13 +815,12 @@ async function runHermesProviderMorningDigest(payload = {}) {
   const skippedPersonaIds = allPersonas
     .filter((persona) => persona.platformStatus !== "active")
     .map((persona) => persona.id);
-  const recentTopicsByPersona = new Map();
-  for (const persona of personas) {
-    recentTopicsByPersona.set(
+  const recentTopicsByPersona = new Map(
+    await Promise.all(personas.map(async (persona) => [
       persona.id,
       (await getSignalsForPersona(persona.id)).slice(0, 20).map((signal) => signal.topic)
-    );
-  }
+    ]))
+  );
 
   const result = await runProviderBackedMorningDigest({
     personas,
@@ -982,13 +981,23 @@ async function runIngestion(payload = {}) {
   const sourceSet = new Set();
 
   try {
-    for (const persona of personas) {
+    const personaResults = await Promise.allSettled(personas.map(async (persona) => {
       const recentTopics = (await getSignalsForPersona(persona.id)).slice(0, 20).map((signal) => signal.topic);
       const result = await buildSignalsForPersona(persona, recentTopics, {
         forceMock: Boolean(payload.useMockProviders),
         ignoreProviderErrors: true,
         maxSignalsPerPersona: payload.maxSignalsPerPersona || 6
       });
+      return { persona, result };
+    }));
+
+    for (const settled of personaResults) {
+      if (settled.status === "rejected") {
+        console.error("[runIngestion] persona failed:", settled.reason?.message || settled.reason);
+        continue;
+      }
+
+      const { result } = settled.value;
       candidateCount += result.candidates.length;
       clusterCount += result.clusters.length;
       for (const candidate of result.candidates) sourceSet.add(candidate.source);

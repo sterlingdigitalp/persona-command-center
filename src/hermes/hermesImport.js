@@ -22,6 +22,7 @@ function mapSignal(row) {
     id: row.id,
     personaId: row.persona_id,
     topic: row.topic,
+    clusterId: row.cluster_id,
     priorityScore: row.priority_score || 0,
     status: row.status,
     validationId: row.validation_id,
@@ -29,21 +30,36 @@ function mapSignal(row) {
   };
 }
 
-async function findDuplicateSignal(signal) {
+async function loadRecentSignalsByPersona(personaIds, clusterIds = []) {
+  if (!personaIds.length) return new Map();
+  const clusterFilter = clusterIds.length
+    ? `OR cluster_id IN (${clusterIds.map(sqlString).join(", ")})`
+    : "";
   const rows = await querySql(`
     SELECT *
     FROM signals
-    WHERE persona_id = ${sqlString(signal.personaId)}
+    WHERE persona_id IN (${personaIds.map(sqlString).join(", ")})
       AND status != 'archived'
       AND (
-        cluster_id = ${sqlString(signal.clusterId)}
-        OR date(last_seen_at) >= date('now', '-7 day')
+        date(last_seen_at) >= date('now', '-7 day')
+        ${clusterFilter}
       )
     ORDER BY last_seen_at DESC
-    LIMIT 80;
   `);
-  return rows.map(mapSignal).find((existing) => (
+
+  const byPersona = new Map();
+  for (const row of rows.map(mapSignal)) {
+    if (!byPersona.has(row.personaId)) byPersona.set(row.personaId, []);
+    byPersona.get(row.personaId).push(row);
+  }
+  return byPersona;
+}
+
+function findDuplicateInCache(signal, recentByPersona) {
+  const recent = recentByPersona.get(signal.personaId) || [];
+  return recent.find((existing) => (
     existing.id && (
+      existing.clusterId === signal.clusterId ||
       existing.topic === signal.topic ||
       overlapScore(existing.topic, signal.topic) >= 0.72
     )
@@ -161,16 +177,34 @@ export async function importHermesPayload(payload) {
         });
         normalizedSignals.push(signal);
         sourceSet.add(signal.source);
-        const duplicate = await findDuplicateSignal(signal);
-        if (duplicate) {
-          const signalId = await updateSignal(runId, duplicate, signal);
-          importedSignalIds.push(signalId);
-          updated += 1;
-        } else {
-          const signalId = await insertSignal(runId, signal);
-          importedSignalIds.push(signalId);
-          imported += 1;
-        }
+      }
+    }
+
+    const personaIds = [...new Set(normalizedSignals.map((signal) => signal.personaId))];
+    const clusterIds = [...new Set(normalizedSignals.map((signal) => signal.clusterId).filter(Boolean))];
+    const recentByPersona = await loadRecentSignalsByPersona(personaIds, clusterIds);
+
+    for (const signal of normalizedSignals) {
+      const duplicate = findDuplicateInCache(signal, recentByPersona);
+      if (duplicate) {
+        const signalId = await updateSignal(runId, duplicate, signal);
+        importedSignalIds.push(signalId);
+        updated += 1;
+      } else {
+        const signalId = await insertSignal(runId, signal);
+        importedSignalIds.push(signalId);
+        imported += 1;
+        if (!recentByPersona.has(signal.personaId)) recentByPersona.set(signal.personaId, []);
+        recentByPersona.get(signal.personaId).unshift({
+          id: signalId,
+          personaId: signal.personaId,
+          topic: signal.topic,
+          clusterId: signal.clusterId,
+          priorityScore: signal.priorityScore,
+          status: "new",
+          validationId: signal.validationId,
+          evidenceUrls: signal.evidenceUrls
+        });
       }
     }
 

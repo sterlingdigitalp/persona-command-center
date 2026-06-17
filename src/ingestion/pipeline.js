@@ -4,32 +4,46 @@ import { clusterCandidates } from "./cluster.js";
 import { dedupeCandidates } from "./dedupe.js";
 import { scoreCluster } from "./scoring.js";
 
+const MAX_EVIDENCE_URLS = 6;
+const MAX_RAW_CANDIDATES = 8;
+
 export async function collectPersonaCandidates(persona, options = {}) {
-  const candidates = [];
   const queries = persona.queries?.length ? persona.queries : [{ query: persona.niche, provider: "news", weight: 1 }];
   const providerNames = Array.isArray(options.providerNames) && options.providerNames.length
     ? options.providerNames
     : null;
 
-  for (const queryConfig of queries) {
+  const fetchTasks = queries.flatMap((queryConfig) => {
     const providers = providerNames || [queryConfig.provider || "news"];
-    for (const provider of providers) {
-      try {
-        const effectiveQuery = { ...queryConfig, provider };
-        const queryCandidates = await collectCandidatesForQuery(persona, effectiveQuery, options);
-        candidates.push(...queryCandidates.map((candidate) => ({
-          ...candidate,
-          rawData: {
-            ...candidate.rawData,
-            query: effectiveQuery.query,
-            provider: effectiveQuery.provider,
-            weight: effectiveQuery.weight || 1
-          }
-        })));
-      } catch (error) {
-        if (!options.ignoreProviderErrors) throw error;
-      }
+    return providers.map(async (provider) => {
+      const effectiveQuery = { ...queryConfig, provider };
+      const queryCandidates = await collectCandidatesForQuery(persona, effectiveQuery, options);
+      return queryCandidates.map((candidate) => ({
+        ...candidate,
+        rawData: {
+          ...candidate.rawData,
+          query: effectiveQuery.query,
+          provider: effectiveQuery.provider,
+          weight: effectiveQuery.weight || 1
+        }
+      }));
+    });
+  });
+
+  const settled = await Promise.allSettled(fetchTasks);
+  const candidates = [];
+  const failures = [];
+
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      candidates.push(...result.value);
+    } else {
+      failures.push(result.reason);
     }
+  }
+
+  if (failures.length && !options.ignoreProviderErrors) {
+    throw failures[0];
   }
 
   return candidates;
@@ -47,6 +61,13 @@ export async function buildSignalsForPersona(persona, recentTopics = [], options
   const signals = clusters.map((cluster) => {
     const queryConfig = cluster.candidates[0].rawData || { query: persona.niche, weight: 1 };
     const scores = scoreCluster(persona, queryConfig, cluster, recentTopics);
+    const rawCandidates = cluster.candidates.slice(0, MAX_RAW_CANDIDATES).map((candidate) => ({
+      url: candidate.url,
+      title: candidate.title,
+      publishedAt: candidate.publishedAt,
+      provider: candidate.provider,
+      source: candidate.source
+    }));
     return {
       personaId: persona.id,
       topic: cluster.topic,
@@ -58,11 +79,11 @@ export async function buildSignalsForPersona(persona, recentTopics = [], options
       sourceCount: cluster.sourceCount,
       clusterId: cluster.id,
       suggestedAngle: generateSuggestedAngle(persona, cluster),
-      evidenceUrls: cluster.urls.slice(0, 6),
+      evidenceUrls: cluster.urls.slice(0, MAX_EVIDENCE_URLS),
       rawCluster: {
         candidateCount: cluster.candidates.length,
         providers: [...new Set(cluster.candidates.map((candidate) => candidate.provider))],
-        candidates: cluster.candidates.slice(0, 8)
+        candidates: rawCandidates
       }
     };
   });

@@ -8,6 +8,14 @@ const execFileAsync = promisify(execFile);
 const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
 export const dbPath = process.env.DB_PATH || path.join(rootDir, "data", "persona-command-center.sqlite");
 const seedPersonaIds = ["the-wonkette", "policy-pete", "maga-memester", "progressive-pat"];
+let dataDirReady;
+
+async function ensureDataDir() {
+  if (!dataDirReady) {
+    dataDirReady = mkdir(path.dirname(dbPath), { recursive: true });
+  }
+  await dataDirReady;
+}
 
 function sqliteArgs(sql, json = false) {
   const args = [];
@@ -18,12 +26,12 @@ function sqliteArgs(sql, json = false) {
 }
 
 export async function execSql(sql) {
-  await mkdir(path.dirname(dbPath), { recursive: true });
+  await ensureDataDir();
   await execFileAsync("sqlite3", sqliteArgs(sql), { maxBuffer: 1024 * 1024 * 10 });
 }
 
 export async function querySql(sql) {
-  await mkdir(path.dirname(dbPath), { recursive: true });
+  await ensureDataDir();
   const { stdout } = await execFileAsync("sqlite3", sqliteArgs(sql, true), { maxBuffer: 1024 * 1024 * 10 });
   return stdout.trim() ? JSON.parse(stdout) : [];
 }
@@ -49,8 +57,10 @@ async function auditDb(action, entityType, entityId, metadata = {}) {
 }
 
 export async function initDb() {
-  const schema = await readFile(path.join(rootDir, "db", "schema.sql"), "utf8");
-  const seed = await readFile(path.join(rootDir, "db", "seed.sql"), "utf8");
+  const [schema, seed] = await Promise.all([
+    readFile(path.join(rootDir, "db", "schema.sql"), "utf8"),
+    readFile(path.join(rootDir, "db", "seed.sql"), "utf8")
+  ]);
   await execSql(schema);
   await runMigrations();
   const existingSeedPersonas = await querySql(`
@@ -60,7 +70,7 @@ export async function initDb() {
   `);
   const existingById = new Map(existingSeedPersonas.map((row) => [row.id, row]));
   await execSql(seed);
-  for (const personaId of seedPersonaIds) {
+  await Promise.allSettled(seedPersonaIds.map(async (personaId) => {
     const existing = existingById.get(personaId);
     if (existing) {
       await auditDb("seed.skipped_existing_persona", "persona", personaId, { reason: "insert_only_seed" });
@@ -71,7 +81,7 @@ export async function initDb() {
     } else {
       await auditDb("seed.inserted_missing_persona", "persona", personaId, { reason: "missing_default" });
     }
-  }
+  }));
 }
 
 export function parseJsonField(value, fallback) {
@@ -83,71 +93,87 @@ export function parseJsonField(value, fallback) {
   }
 }
 
-async function hasColumn(table, column) {
+async function getColumns(table) {
   const columns = await querySql(`PRAGMA table_info(${table});`);
-  return columns.some((item) => item.name === column);
+  return new Set(columns.map((item) => item.name));
 }
 
-async function addColumnIfMissing(table, column, definition) {
-  if (!(await hasColumn(table, column))) {
-    await execSql(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+async function addMissingColumns(table, columnDefs) {
+  const columns = await getColumns(table);
+  const statements = columnDefs
+    .filter(({ column }) => !columns.has(column))
+    .map(({ column, definition }) => `ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+  if (statements.length) {
+    await execSql(statements.join("\n"));
   }
 }
 
 async function runMigrations() {
-  await addColumnIfMissing("signals", "status", "TEXT NOT NULL DEFAULT 'new'");
-  await addColumnIfMissing("signals", "reviewed_at", "TEXT");
-  await addColumnIfMissing("signals", "dismissed_at", "TEXT");
-  await addColumnIfMissing("signals", "used_at", "TEXT");
-  await addColumnIfMissing("signals", "freshness_score", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("signals", "priority_score", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("signals", "source_count", "INTEGER NOT NULL DEFAULT 1");
-  await addColumnIfMissing("signals", "cluster_id", "TEXT");
-  await addColumnIfMissing("signals", "generated_by", "TEXT");
-  await addColumnIfMissing("signals", "source_provider", "TEXT");
-  await addColumnIfMissing("signals", "hermes_run_type", "TEXT");
-  await addColumnIfMissing("signals", "hermes_provider", "TEXT");
-  await addColumnIfMissing("signals", "hermes_model", "TEXT");
-  await addColumnIfMissing("signals", "hermes_endpoint", "TEXT");
-  await addColumnIfMissing("signals", "hermes_job_name", "TEXT");
-  await addColumnIfMissing("signals", "validation_id", "TEXT");
+  const migrations = [
+    ["signals", [
+      ["status", "TEXT NOT NULL DEFAULT 'new'"],
+      ["reviewed_at", "TEXT"],
+      ["dismissed_at", "TEXT"],
+      ["used_at", "TEXT"],
+      ["freshness_score", "INTEGER NOT NULL DEFAULT 0"],
+      ["priority_score", "INTEGER NOT NULL DEFAULT 0"],
+      ["source_count", "INTEGER NOT NULL DEFAULT 1"],
+      ["cluster_id", "TEXT"],
+      ["generated_by", "TEXT"],
+      ["source_provider", "TEXT"],
+      ["hermes_run_type", "TEXT"],
+      ["hermes_provider", "TEXT"],
+      ["hermes_model", "TEXT"],
+      ["hermes_endpoint", "TEXT"],
+      ["hermes_job_name", "TEXT"],
+      ["validation_id", "TEXT"]
+    ]],
+    ["ingestion_runs", [
+      ["run_type", "TEXT NOT NULL DEFAULT 'mock'"],
+      ["signals_created", "INTEGER NOT NULL DEFAULT 0"],
+      ["source_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["candidate_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["cluster_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["signal_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["generated_by", "TEXT"],
+      ["provider", "TEXT"],
+      ["model", "TEXT"],
+      ["endpoint", "TEXT"],
+      ["job_name", "TEXT"],
+      ["validation_id", "TEXT"],
+      ["notes", "TEXT"],
+      ["error_message", "TEXT"]
+    ]],
+    ["persona_queries", [
+      ["provider", "TEXT NOT NULL DEFAULT 'news'"],
+      ["weight", "INTEGER NOT NULL DEFAULT 1"],
+      ["updated_at", "TEXT"],
+      ["user_edited", "INTEGER NOT NULL DEFAULT 0"],
+      ["user_edited_at", "TEXT"],
+      ["locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0"]
+    ]],
+    ["personas", [
+      ["user_edited", "INTEGER NOT NULL DEFAULT 0"],
+      ["user_edited_at", "TEXT"],
+      ["locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0"]
+    ]],
+    ["drafts", [
+      ["original_body", "TEXT"],
+      ["edited_body", "TEXT"],
+      ["platform", "TEXT NOT NULL DEFAULT 'x'"]
+    ]],
+    ["scheduled_posts", [["updated_at", "TEXT"]]],
+    ["signal_snapshots", [
+      ["freshness_score", "INTEGER NOT NULL DEFAULT 0"],
+      ["priority_score", "INTEGER NOT NULL DEFAULT 0"],
+      ["source_count", "INTEGER NOT NULL DEFAULT 1"],
+      ["cluster_id", "TEXT"]
+    ]]
+  ];
 
-  await addColumnIfMissing("ingestion_runs", "run_type", "TEXT NOT NULL DEFAULT 'mock'");
-  await addColumnIfMissing("ingestion_runs", "signals_created", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("ingestion_runs", "source_count", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("ingestion_runs", "candidate_count", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("ingestion_runs", "cluster_count", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("ingestion_runs", "signal_count", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("ingestion_runs", "generated_by", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "provider", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "model", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "endpoint", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "job_name", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "validation_id", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "notes", "TEXT");
-  await addColumnIfMissing("ingestion_runs", "error_message", "TEXT");
-
-  await addColumnIfMissing("persona_queries", "provider", "TEXT NOT NULL DEFAULT 'news'");
-  await addColumnIfMissing("persona_queries", "weight", "INTEGER NOT NULL DEFAULT 1");
-  await addColumnIfMissing("persona_queries", "updated_at", "TEXT");
-  await addColumnIfMissing("persona_queries", "user_edited", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("persona_queries", "user_edited_at", "TEXT");
-  await addColumnIfMissing("persona_queries", "locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0");
-
-  await addColumnIfMissing("personas", "user_edited", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("personas", "user_edited_at", "TEXT");
-  await addColumnIfMissing("personas", "locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0");
-
-  await addColumnIfMissing("drafts", "original_body", "TEXT");
-  await addColumnIfMissing("drafts", "edited_body", "TEXT");
-  await addColumnIfMissing("drafts", "platform", "TEXT NOT NULL DEFAULT 'x'");
-
-  await addColumnIfMissing("scheduled_posts", "updated_at", "TEXT");
-
-  await addColumnIfMissing("signal_snapshots", "freshness_score", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("signal_snapshots", "priority_score", "INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing("signal_snapshots", "source_count", "INTEGER NOT NULL DEFAULT 1");
-  await addColumnIfMissing("signal_snapshots", "cluster_id", "TEXT");
+  for (const [table, columns] of migrations) {
+    await addMissingColumns(table, columns.map(([column, definition]) => ({ column, definition })));
+  }
 
   await execSql(`
     CREATE TABLE IF NOT EXISTS hermes_settings (
@@ -155,9 +181,7 @@ async function runMigrations() {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
-  `);
 
-  await execSql(`
     CREATE TABLE IF NOT EXISTS velocity_alerts (
       id TEXT PRIMARY KEY,
       signal_id TEXT NOT NULL,
@@ -172,9 +196,7 @@ async function runMigrations() {
       FOREIGN KEY (signal_id) REFERENCES signals(id) ON DELETE CASCADE,
       FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
     );
-  `);
 
-  await execSql(`
     UPDATE drafts SET original_body = body WHERE original_body IS NULL;
     UPDATE drafts SET edited_body = body WHERE edited_body IS NULL;
     UPDATE scheduled_posts SET updated_at = created_at WHERE updated_at IS NULL;

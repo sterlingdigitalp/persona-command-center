@@ -7,6 +7,9 @@ import { scoreCluster } from "../ingestion/scoring.js";
 import { getHermesAttributionDefaults } from "./hermesClient.js";
 import { selectMorningDigestSignals } from "./chiefOfStaff.js";
 
+const MAX_EVIDENCE_URLS = 6;
+const MAX_RAW_CANDIDATES = 8;
+
 function canUseMock(options = {}) {
   return options.allowMock === true || process.env.NODE_ENV === "test";
 }
@@ -27,6 +30,13 @@ function scoreFreshCandidates(persona, candidates, recentTopics, maxSignals = 20
   const signals = clusters.map((cluster) => {
     const queryConfig = cluster.candidates[0].rawData || { query: persona.niche, weight: 1 };
     const scores = scoreCluster(persona, queryConfig, cluster, recentTopics);
+    const rawCandidates = cluster.candidates.slice(0, MAX_RAW_CANDIDATES).map((candidate) => ({
+      url: candidate.url,
+      title: candidate.title,
+      publishedAt: candidate.publishedAt,
+      provider: candidate.provider,
+      source: candidate.source
+    }));
     return {
       personaId: persona.id,
       topic: cluster.topic,
@@ -39,11 +49,11 @@ function scoreFreshCandidates(persona, candidates, recentTopics, maxSignals = 20
       sourceCount: cluster.sourceCount,
       clusterId: cluster.id,
       suggestedAngle: generateSuggestedAngle(persona, cluster),
-      evidenceUrls: cluster.urls.slice(0, 6),
+      evidenceUrls: cluster.urls.slice(0, MAX_EVIDENCE_URLS),
       rawCluster: {
         candidateCount: cluster.candidates.length,
         providers: [...new Set(cluster.candidates.map((candidate) => candidate.provider))],
-        candidates: cluster.candidates.slice(0, 8)
+        candidates: rawCandidates
       }
     };
   });
@@ -56,8 +66,9 @@ function scoreFreshCandidates(persona, candidates, recentTopics, maxSignals = 20
 }
 
 function toHermesSignal(signal, attribution) {
+  const { rawCluster, ...signalWithoutCluster } = signal;
   return {
-    ...signal,
+    ...signalWithoutCluster,
     source: signal.source || "Provider",
     sourceProvider: "Hermes",
     provider: attribution.provider,
@@ -65,7 +76,7 @@ function toHermesSignal(signal, attribution) {
     endpoint: attribution.endpoint,
     jobName: attribution.jobName,
     rawData: {
-      ...(signal.rawCluster || {}),
+      ...(rawCluster || {}),
       providerBackedMorningDigest: true
     }
   };
@@ -100,7 +111,7 @@ export async function runProviderBackedMorningDigest({
   let dedupedCount = 0;
   let clusterCount = 0;
 
-  for (const persona of personas) {
+  const personaResults = await Promise.allSettled(personas.map(async (persona) => {
     const result = await buildSignalsForPersona(persona, recentTopicsByPersona.get(persona.id) || [], {
       providerNames,
       forceMock: providerNames.includes("mock"),
@@ -108,6 +119,7 @@ export async function runProviderBackedMorningDigest({
       maxSignalsPerPersona: 200,
       timeoutMs: Number(options.timeoutMs || 6000)
     });
+
     const filtered = filterFreshCandidates(result.candidates, {
       now: options.now || new Date(),
       maxAgeHours: Number(options.maxAgeHours || 72),
@@ -121,6 +133,13 @@ export async function runProviderBackedMorningDigest({
       recentTopicsByPersona.get(persona.id) || [],
       20
     );
+
+    return { persona, result, filtered, scored };
+  }));
+
+  for (const settled of personaResults) {
+    if (settled.status === "rejected") continue;
+    const { persona, result, filtered, scored } = settled.value;
     candidateCount += filtered.counts.candidateCount;
     staleFilteredCount += filtered.counts.staleFilteredCount;
     mockFilteredCount += filtered.counts.mockFilteredCount;
