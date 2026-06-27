@@ -1,15 +1,18 @@
-import { collectMockCandidates } from "./mockProvider.js";
-import { collectNewsCandidates } from "./newsProvider.js";
-import { collectRssCandidates } from "./rssProvider.js";
+// Provider registry bootstrap.
+// Importing these triggers self-registration via registry.js
+import "./rssProvider.js";
+import "./newsProvider.js";
+import "./mockProvider.js";
 
-export async function collectCandidatesForQuery(persona, queryConfig, options = {}) {
-  if (options.forceMock || queryConfig.provider === "mock") {
-    return collectMockCandidates(persona, queryConfig, options);
-  }
+// Future provider stubs (registered for extensibility proof; throw NotImplemented until implemented)
+import "./crawl4aiProvider.js";
+import "./xProvider.js";
+import "./redditProvider.js";
 
-  if (queryConfig.provider === "rss") {
-    return collectRssCandidates(persona, queryConfig, options);
-  }
-
-  return collectNewsCandidates(persona, queryConfig, options);
-}
+// Re-export the registry API
+export {
+  registerProvider,
+  getProvider,
+  listProviders,
+  collectCandidatesForQuery
+} from "./registry.js";

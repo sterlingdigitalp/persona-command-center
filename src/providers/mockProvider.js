@@ -1,3 +1,5 @@
+import { registerProvider } from "./registry.js";
+
 const MOCK_ITEMS = {
   "the-wonkette": [
     "Court ethics watchdog report draws new scrutiny",
@@ -21,7 +23,34 @@ const MOCK_ITEMS = {
   ]
 };
 
-export async function collectMockCandidates(persona, queryConfig) {
+export const MOCK_HOSTS = new Set([
+  "mock-public-news.example",
+  "mock-rss-feed.example",
+  "example.test",
+  "hermes.local"
+]);
+
+export function isMockSource(candidate) {
+  if (!candidate) return false;
+  if (candidate.provider === "mock" || candidate.rawData?.mock === true) return true;
+  const values = [
+    candidate?.source,
+    candidate?.url,
+    candidate?.rawData?.source,
+    candidate?.rawData?.url
+  ].filter(Boolean);
+  return values.some((value) => {
+    try {
+      const host = new URL(value).hostname.toLowerCase();
+      return [...MOCK_HOSTS].some((mockHost) => host === mockHost || host.includes(mockHost));
+    } catch {
+      const s = String(value || "").toLowerCase();
+      return [...MOCK_HOSTS].some((mockHost) => s.includes(mockHost));
+    }
+  });
+}
+
+export async function collectCandidates(persona, queryConfig) {
   const now = new Date();
   const items = MOCK_ITEMS[persona.id] || [`${persona.name} policy development`];
   return items.map((title, index) => ({
@@ -41,3 +70,9 @@ export async function collectMockCandidates(persona, queryConfig) {
     }
   }));
 }
+
+// Legacy alias
+export { collectCandidates as collectMockCandidates };
+
+// Self-register
+registerProvider("mock", collectCandidates);

@@ -3,18 +3,20 @@ import { generateSuggestedAngle } from "./angleEngine.js";
 import { clusterCandidates } from "./cluster.js";
 import { dedupeCandidates } from "./dedupe.js";
 import { scoreCluster } from "./scoring.js";
+import { getDefaultProviders } from "../../config/defaultProviders.js";
 
 const MAX_EVIDENCE_URLS = 6;
 const MAX_RAW_CANDIDATES = 8;
 
 export async function collectPersonaCandidates(persona, options = {}) {
-  const queries = persona.queries?.length ? persona.queries : [{ query: persona.niche, provider: "news", weight: 1 }];
+  const defaultProviders = getDefaultProviders();
+  const queries = persona.queries?.length ? persona.queries : [{ query: persona.niche, provider: defaultProviders[0] || "rss", weight: 1 }];
   const providerNames = Array.isArray(options.providerNames) && options.providerNames.length
     ? options.providerNames
     : null;
 
   const fetchTasks = queries.flatMap((queryConfig) => {
-    const providers = providerNames || [queryConfig.provider || "news"];
+    const providers = providerNames || [queryConfig.provider || (defaultProviders[0] || "rss")];
     return providers.map(async (provider) => {
       const effectiveQuery = { ...queryConfig, provider };
       const queryCandidates = await collectCandidatesForQuery(persona, effectiveQuery, options);

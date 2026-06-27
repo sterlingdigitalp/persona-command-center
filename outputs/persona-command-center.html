@@ -1097,6 +1097,21 @@
 
       <div class="insight-grid" id="trendHighlights"></div>
 
+      <!-- PART1: Today's Work structured sections in Operator home -->
+      <div id="todaysWork" style="margin-top:20px;">
+        <h3>🔥 Needs Immediate Attention</h3>
+        <div id="needsImmediate" class="panel list"></div>
+
+        <h3>Draft Review</h3>
+        <div id="draftReviewMain" class="grid"></div>
+
+        <h3>Performance Pending</h3>
+        <div id="performancePending" class="panel list"></div>
+
+        <h3>Completed Today</h3>
+        <div id="completedToday" class="panel list"></div>
+      </div>
+
       <details class="admin-drawer">
         <summary>Advanced signal view</summary>
         <div class="section-title">
@@ -1686,6 +1701,7 @@
             <div class="operator-actions">
               <button class="btn" onclick="markOperatorSent('${postRef}', '${item.persona.id}')">Mark Sent</button>
               <button class="btn secondary" onclick="sendOperatorLater('${postRef}', '${item.persona.id}')">Send Later</button>
+              <button class="btn secondary" onclick="sendOperatorLaterWithTime('${postRef}', '${item.persona.id}', 30)">+30m</button>
               <button class="btn link" onclick="skipOperatorItem('${postRef}', '${item.persona.id}')">Skip</button>
             </div>
           </article>
@@ -1749,6 +1765,75 @@
       renderOperatorCards();
       renderTrendHighlights();
       renderSuggestionsPanel();
+      // PART5/9: focus attention on pending work
+      renderPriorityQueues();
+      renderTodaysWork();
+    }
+
+    function renderTodaysWork() {
+      const items = queuePersonaItems();
+      // 🔥 Needs Immediate Attention
+      const needsEl = document.getElementById('needsImmediate');
+      if (needsEl) {
+        let html = '';
+        items.forEach(item => {
+          (item.velocityAlerts || []).forEach(a => {
+            if (a.alertLevel === 'viral_window' || a.alertLevel === 'rising') {
+              html += `<div class="row"><div>${escapeHtml(a.alertLevel)} ${escapeHtml(a.topic || '')} ${escapeHtml(item.persona.name)}</div><div class="status"><button onclick="generateDraftsFromSignal('${item.persona.id}', '${a.signalId||''}')">Generate Draft</button> <button onclick="showSignalHistory('${a.signalId||''}')">Review Signal</button></div></div>`;
+            }
+          });
+          (item.drafts || []).filter(d => d.status === 'needs_review').forEach(d => {
+            html += `<div class="row"><div>Draft awaiting review for ${escapeHtml(item.persona.name)}</div><div class="status"><button onclick="approveDraft('${d.id}')">Approve</button><button onclick="rejectDraft('${d.id}')">Reject</button></div></div>`;
+          });
+        });
+        (publishedPosts || []).filter(p => !p.performance || !p.performance.updatedAt).forEach(p => {
+          html += `<div class="row"><div>Perf pending ${escapeHtml(personaName(p.personaId))}</div><div class="status"><button onclick="capturePerformance('${p.id}')">Capture</button></div></div>`;
+        });
+        needsEl.innerHTML = html || '<div class="row">Nothing urgent.</div>';
+      }
+
+      // Draft Review (main)
+      const draftMain = document.getElementById('draftReviewMain');
+      if (draftMain) {
+        let h = '';
+        items.forEach(item => {
+          (item.drafts || []).filter(d => ['needs_review','approved'].includes(d.status)).slice(0,3).forEach(d => {
+            h += `<article class="card"><div>${escapeHtml(item.persona.name)}: ${escapeHtml((d.editedBody||d.body||'').slice(0,80))}</div><div class="button-row"><button onclick="approveDraft('${d.id}')">Approve</button><button onclick="rejectDraft('${d.id}')">Reject</button><button onclick="saveDraft('${d.id}')">Edit</button></div></article>`;
+          });
+        });
+        draftMain.innerHTML = h || 'No drafts needing attention.';
+      }
+
+      // Performance Pending
+      const perfEl = document.getElementById('performancePending');
+      if (perfEl) {
+        const pending = (publishedPosts || []).filter(p => !p.performance || !p.performance.updatedAt);
+        perfEl.innerHTML = pending.length ? pending.map(p => `<div class="row"><span>${escapeHtml(personaName(p.personaId))} published</span> <button onclick="capturePerformance('${p.id}')">Enter metrics</button></div>`).join('') : 'All caught up.';
+      }
+
+      // Completed Today
+      const compEl = document.getElementById('completedToday');
+      if (compEl) {
+        const today = new Date().toISOString().slice(0,10);
+        const done = (publishedPosts || []).filter(p => String(p.publishedAt||p.createdAt||'').startsWith(today)).concat( (items.flatMap(i=>i.drafts||[])).filter(d=>d.status==='approved') );
+        compEl.innerHTML = done.length ? done.slice(0,5).map(x => `<div class="row">✓ ${escapeHtml(x.body ? x.body.slice(0,50) : (x.topic||'')) }</div>`).join('') : 'No completions yet.';
+      }
+    }
+
+    function renderPriorityQueues() {
+      const el = document.getElementById("velocityAlerts"); // reuse area for attention if no vel
+      if (!el) return;
+      const items = queuePersonaItems();
+      let html = '<div style="margin-top:8px"><strong>Priority Queues</strong></div>';
+      items.forEach(item => {
+        const p = item.persona || {};
+        const sum = item.summary || {};
+        if (sum.velocityAlertCount) html += `<div>⚡ Velocity for ${escapeHtml(p.name)} (${sum.velocityAlertCount})</div>`;
+        if (sum.draftCount) html += `<div>📝 Drafts: ${sum.draftCount} for ${escapeHtml(p.name)}</div>`;
+        if (sum.needsPerformance) html += `<div>📈 Perf pending for ${escapeHtml(p.name)}</div>`;
+      });
+      // append simple
+      if (html.length > 50) el.insertAdjacentHTML('afterend', '<div class="panel list" style="margin-top:8px">' + html + '</div>');
     }
 
     function renderPersonaCards() {
@@ -1956,6 +2041,19 @@
       `).join("");
 
       document.getElementById("scheduleList").innerHTML = rows;
+
+      // Performance pending section (PART4)
+      const perfPending = (publishedPosts || []).filter(p => !p.performance || !p.performance.updatedAt);
+      if (perfPending.length) {
+        const perfHtml = `<div style="margin-top:12px"><strong>Performance Pending</strong><br>` +
+          perfPending.slice(0,3).map(p => `
+            <div class="row">
+              <div class="time">${escapeHtml(p.publishedAt ? formatTime(p.publishedAt) : '')}</div>
+              <div><strong>${escapeHtml(personaName(p.personaId))}</strong> <span>${escapeHtml((p.body||'').slice(0,60))}</span></div>
+              <div class="status"><button class="btn link" onclick="capturePerformance('${p.id}')">Capture</button></div>
+            </div>`).join('') + `</div>`;
+        document.getElementById("scheduleList").insertAdjacentHTML('beforeend', perfHtml);
+      }
     }
 
     function renderDraftReview() {
@@ -1977,8 +2075,9 @@
           <textarea id="draft-${draft.id}" aria-label="Draft body">${escapeHtml(draft.editedBody || draft.body)}</textarea>
           <div class="button-row" style="margin-top: 14px;">
             <button class="btn secondary" onclick="saveDraft('${draft.id}')">Save edit</button>
-            <button class="btn secondary" onclick="approveDraft('${draft.id}')">Approve</button>
-            <button class="btn link" onclick="rejectDraft('${draft.id}')">Reject</button>
+            <button class="btn secondary" onclick="approveWithReason('${draft.id}', 'High confidence')">Approve (High confidence)</button>
+            <button class="btn link" onclick="approveWithReason('${draft.id}', 'Operator judgement')">Approve (Custom)</button>
+            <button class="btn link" onclick="rejectWithReason('${draft.id}', 'Too weak')">Reject</button>
             <button class="btn link" onclick="regenerateDraft('${draft.id}')">Regenerate</button>
             ${draft.status === "approved" ? `<button class="btn" onclick="schedulePost('${draft.id}')">Schedule</button>` : ""}
           </div>
@@ -2028,7 +2127,7 @@
             <span>${escapeHtml(personaName(signal.personaId))} · ${escapeHtml(signal.status)} · ${signal.sourceCount || 1} sources · freshness ${signal.freshnessScore || 0}</span>
           </div>
           <div class="status">
-            ${signal.status !== "reviewed" ? `<button class="btn link" onclick="markSignalReviewed('${signal.id}')">Review</button>` : "Reviewed"}
+            ${signal.status !== "reviewed" ? `<button class="btn link" onclick="markSignalReviewedWithReason('${signal.id}', 'Interesting')">Review (Interesting)</button>` : "Reviewed"}
             <br><button class="btn link" onclick="showSignalHistory('${signal.id}')">History</button>
           </div>
         </div>
@@ -2038,16 +2137,23 @@
     function renderVelocityAlerts() {
       const container = document.getElementById("velocityAlerts");
       if (!container) return;
-      container.innerHTML = velocityAlerts.slice(0, 8).map((alert) => `
+      container.innerHTML = velocityAlerts.slice(0, 8).map((alert) => {
+        const sigId = alert.signalId || '';
+        const pid = alert.personaId || '';
+        return `
         <div class="row">
           <div class="time">${escapeHtml(alert.alertLevel || "watch")}</div>
           <div>
             <strong>${escapeHtml(alert.topic || "Velocity alert")}</strong>
-            <span>${escapeHtml(alert.personaName || personaName(alert.personaId))} · acceleration ${alert.accelerationScore || 0} · ${escapeHtml(alert.explanation || "")}</span>
+            <span>${escapeHtml(alert.personaName || personaName(alert.personaId))} · acc ${alert.accelerationScore || 0}</span>
           </div>
-          <div class="status">${escapeHtml(alert.recommendedAction || "Monitor")}</div>
-        </div>
-      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No velocity alerts</strong><span>Alerts appear when a signal accelerates across snapshots.</span></div><div class="status">Quiet</div></div>`;
+          <div class="status">
+            ${sigId ? `<button class="btn link" onclick="generateDraftsFromSignal('${pid}','${sigId}')">Draft</button>` : ''}
+            <button class="btn link" onclick="showSignalHistory('${sigId || ''}')">Open</button>
+            ${sigId ? `<button class="btn link" onclick="dismissSignal('${sigId}')">Dismiss</button>` : ''}
+          </div>
+        </div>`;
+      }).join("") || `<div class="row"><div class="time">-</div><div><strong>No velocity alerts</strong><span>Alerts appear when a signal accelerates across snapshots.</span></div><div class="status">Quiet</div></div>`;
     }
 
     function renderHermesSettings() {
@@ -2267,6 +2373,7 @@
       renderSignalExplorer();
       renderVelocityAlerts();
       renderHermesSettings();
+      renderTodaysWork(); // ensure Today's Work sections updated
     }
 
     async function reloadPersonas() {
@@ -2388,22 +2495,53 @@
 
     async function showSignalHistory(signalId) {
       const history = await apiFetch(`/api/signals/${signalId}/history`);
+      const audit = await apiFetch(`/api/audit-log?limit=100`).catch(() => []);
       const container = document.getElementById("signalHistory");
-      container.innerHTML = history.snapshots.map((snapshot) => `
-        <div class="row">
-          <div class="time">${formatTime(snapshot.capturedAt)}</div>
-          <div>
-            <strong>${escapeHtml(history.signal.topic)}</strong>
-            <span>Priority ${snapshot.priorityScore} · Velocity ${snapshot.velocityScore} · Freshness ${snapshot.freshnessScore}</span>
-          </div>
-          <div class="status">${escapeHtml(history.signal.sourceProvider || history.signal.source || "Source")}</div>
+      const events = [];
+
+      // snapshots
+      (history.snapshots || []).forEach(s => {
+        events.push({ t: s.capturedAt, label: `Snapshot: prio ${s.priorityScore} vel ${s.velocityScore}` });
+      });
+
+      // status changes from signal
+      const sig = history.signal || {};
+      if (sig.reviewed_at) events.push({ t: sig.reviewed_at, label: `Reviewed: ${sig.review_reason || ''}` });
+      if (sig.used_at) events.push({ t: sig.used_at, label: `Used (published)` });
+      if (sig.dismissed_at) events.push({ t: sig.dismissed_at, label: `Dismissed: ${sig.dismissal_reason || ''}` });
+
+      // relevant audit events
+      (audit || []).forEach(a => {
+        if (!a || !a.entity_id) return;
+        if (a.entity_id === signalId || (a.metadata && (a.metadata.signalId === signalId || a.metadata.draftId))) {
+          events.push({ t: a.created_at, label: `${a.action} ${a.entity_type}` });
+        }
+      });
+
+      events.sort((a,b) => new Date(a.t) - new Date(b.t));
+
+      container.innerHTML = events.length ? events.map(ev => `
+        <div class="row" style="border-left:2px solid #0071e3; padding-left:6px; margin:2px 0;">
+          <div class="time">${formatTime(ev.t)}</div>
+          <div><span>${escapeHtml(ev.label)}</span></div>
         </div>
-      `).join("") || `<div class="row"><div class="time">-</div><div><strong>No history yet</strong><span>This signal has no score snapshots.</span></div><div class="status">Empty</div></div>`;
+      `).join('') : `<div class="row"><div class="time">-</div><div><strong>No history yet</strong><span>This signal has no events.</span></div></div>`;
     }
 
     async function markSignalReviewed(signalId) {
+      const reason = getQuickReason("review", ["Interesting", "Too weak", "Needs fact check", "Wrong persona", "Duplicate", "Too risky", "Already covered"]);
       try {
-        await apiFetch(`/api/signals/${signalId}/mark-reviewed`, { method: "POST", body: "{}" });
+        await apiFetch(`/api/signals/${signalId}/mark-reviewed`, { method: "POST", body: JSON.stringify({ reason }) });
+        await loadBackendData();
+        showToast("Signal marked reviewed.");
+      } catch {
+        showToast("Could not update signal.");
+      }
+    }
+
+    async function markSignalReviewedWithReason(signalId, reason) {
+      try {
+        await apiFetch(`/api/signals/${signalId}/mark-reviewed`, { method: "POST", body: JSON.stringify({ reason }) });
         await loadBackendData();
         showToast("Signal marked reviewed.");
       } catch {
@@ -2444,6 +2582,21 @@
       renderDraftReview();
     }
 
+    async function generateDraftsFromSignal(personaId, signalId) {
+      if (!personaId) personaId = (personas[0] || {}).id;
+      try {
+        await apiFetch("/api/drafts/generate", {
+          method: "POST",
+          body: JSON.stringify({ personaId, signalIds: signalId ? [signalId] : [], count: 2 })
+        });
+        await loadBackendData();
+        showSection("schedule");
+        showToast("Draft generated from velocity signal.");
+      } catch {
+        showToast("Draft generation failed.");
+      }
+    }
+
     async function saveDraft(draftId) {
       const field = document.getElementById(`draft-${draftId}`);
       try {
@@ -2459,8 +2612,9 @@
     }
 
     async function approveDraft(draftId) {
+      const reason = getQuickReason("approve", ["High confidence", "Fast moving", "Perfect persona fit", "Strong evidence", "Operator judgement"]);
       try {
-        await apiFetch(`/api/drafts/${draftId}/approve`, { method: "POST", body: "{}" });
+        await apiFetch(`/api/drafts/${draftId}/approve`, { method: "POST", body: JSON.stringify({ reason }) });
         await loadBackendData();
         showToast("Draft approved.");
       } catch {
@@ -2468,9 +2622,30 @@
       }
     }
 
-    async function rejectDraft(draftId) {
+    async function approveWithReason(draftId, reason) {
       try {
-        await apiFetch(`/api/drafts/${draftId}/reject`, { method: "POST", body: "{}" });
+        await apiFetch(`/api/drafts/${draftId}/approve`, { method: "POST", body: JSON.stringify({ reason }) });
+        await loadBackendData();
+        showToast("Draft approved.");
+      } catch {
+        showToast("Could not approve draft.");
+      }
+    }
+
+    async function rejectWithReason(draftId, reason) {
+      try {
+        await apiFetch(`/api/drafts/${draftId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+        await loadBackendData();
+        showToast("Draft rejected.");
+      } catch {
+        showToast("Could not reject draft.");
+      }
+    }
+
+    async function rejectDraft(draftId) {
+      const reason = getQuickReason("reject", ["Too weak", "Needs fact check", "Wrong persona", "Duplicate", "Too risky"]);
+      try {
+        await apiFetch(`/api/drafts/${draftId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
         await loadBackendData();
         showToast("Draft rejected.");
       } catch {
@@ -2491,9 +2666,10 @@
     async function schedulePost(draftId) {
       try {
         const approved = draftId ? drafts.find((draft) => draft.id === draftId) : drafts.find((draft) => draft.status === "approved");
+        const scheduledAt = getScheduledAt();
         await apiFetch("/api/schedule", {
           method: "POST",
-          body: JSON.stringify(approved ? { draftId: approved.id } : { body: "Raw scheduled content from the dashboard." })
+          body: JSON.stringify(approved ? { draftId: approved.id, scheduledAt } : { body: "Raw scheduled content from the dashboard.", scheduledAt })
         });
         await loadBackendData();
         showToast("Post scheduled locally.");
@@ -2509,6 +2685,37 @@
 
     function quickText(personaId) {
       return document.getElementById(`quick-${personaId}`)?.value || "";
+    }
+
+    function getQuickReason(type = "review", quickList = []) {
+      const listStr = quickList.join(" | ");
+      const choice = prompt(`${type.toUpperCase()} reason:\n${listStr}\n\nEnter one of above or custom (Other for free text):`, quickList[0] || "");
+      if (!choice) return "Operator decision";
+      if (choice.toLowerCase() === "other" || !quickList.some(q => q.toLowerCase() === choice.toLowerCase())) {
+        const custom = prompt("Enter custom reason:", "");
+        return custom || "Operator decision";
+      }
+      return choice;
+    }
+
+    function getScheduledAt() {
+      const choice = prompt("Quick schedule:\n+30m | +1h | +2h | +4h | tomorrow-am | tomorrow-pm | custom\nEnter choice:", "+1h");
+      const now = new Date();
+      if (!choice) return new Date(now.getTime() + 60*60*1000).toISOString();
+      const lower = choice.toLowerCase().trim();
+      if (lower === "+30m" || lower === "30m") return new Date(now.getTime() + 30*60*1000).toISOString();
+      if (lower === "+1h" || lower === "1h") return new Date(now.getTime() + 60*60*1000).toISOString();
+      if (lower === "+2h" || lower === "2h") return new Date(now.getTime() + 2*60*60*1000).toISOString();
+      if (lower === "+4h" || lower === "4h") return new Date(now.getTime() + 4*60*60*1000).toISOString();
+      if (lower === "tomorrow-am") {
+        const t = new Date(now); t.setDate(t.getDate()+1); t.setHours(9,0,0,0); return t.toISOString();
+      }
+      if (lower === "tomorrow-pm") {
+        const t = new Date(now); t.setDate(t.getDate()+1); t.setHours(15,0,0,0); return t.toISOString();
+      }
+      // custom or other: simple prompt for hours from now
+      const hours = parseFloat(prompt("Custom hours from now (e.g. 1.5):", "1")) || 1;
+      return new Date(now.getTime() + hours*60*60*1000).toISOString();
     }
 
     function operatorItemForPersona(personaId) {
@@ -2572,7 +2779,7 @@
           const draft = drafts.find((item) => item.id === id);
           const approved = draft?.status === "approved"
             ? draft
-            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator quick send." }) });
+            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator judgement" }) });
           scheduled = await apiFetch("/api/schedule", {
             method: "POST",
             body: JSON.stringify({ draftId: approved.id })
@@ -2624,10 +2831,10 @@
           const draft = drafts.find((item) => item.id === id);
           const approved = draft?.status === "approved"
             ? draft
-            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator send later." }) });
+            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator judgement" }) });
           scheduled = await apiFetch("/api/schedule", {
             method: "POST",
-            body: JSON.stringify({ draftId: approved.id })
+            body: JSON.stringify({ draftId: approved.id, scheduledAt: getScheduledAt() })
           });
         } else {
           scheduled = await apiFetch("/api/schedule", {
@@ -2636,7 +2843,8 @@
               personaId,
               platform: "x",
               body,
-              sourceSignalIds: type === "signal" ? [id] : []
+              sourceSignalIds: type === "signal" ? [id] : [],
+              scheduledAt: getScheduledAt()
             })
           });
         }
@@ -2645,6 +2853,29 @@
         showToast("Queued for later.");
       } catch (error) {
         showToast(`Could not send later: ${error.message}`);
+      }
+    }
+
+    async function sendOperatorLaterWithTime(ref, personaId, minutes) {
+      const { type, id } = parseOperatorRef(ref);
+      const body = quickText(personaId);
+      const scheduledAt = new Date(Date.now() + minutes * 60000).toISOString();
+      try {
+        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        let scheduled = null;
+        if (type === "draft") {
+          await apiFetch(`/api/drafts/${id}`, { method: "PATCH", body: JSON.stringify({ editedBody: body }) });
+          const draft = drafts.find((item) => item.id === id);
+          const approved = draft?.status === "approved" ? draft : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator judgement" }) });
+          scheduled = await apiFetch("/api/schedule", { method: "POST", body: JSON.stringify({ draftId: approved.id, scheduledAt }) });
+        } else {
+          scheduled = await apiFetch("/api/schedule", { method: "POST", body: JSON.stringify({ personaId, platform: "x", body, sourceSignalIds: type === "signal" ? [id] : [], scheduledAt }) });
+        }
+        await updateOperatorChoiceOutcome(choice, { outcome: "scheduled", scheduledPostId: scheduled?.id || null });
+        await loadBackendData();
+        showToast("Queued for " + minutes + " min.");
+      } catch (error) {
+        showToast(`Could not schedule: ${error.message}`);
       }
     }
 
@@ -2677,6 +2908,25 @@
         showToast("Scheduled post cancelled.");
       } catch {
         showToast("Could not cancel post.");
+      }
+    }
+
+    async function capturePerformance(postId) {
+      const impressions = Number(prompt("Impressions / Views:", "0")) || 0;
+      const likes = Number(prompt("Likes:", "0")) || 0;
+      const replies = Number(prompt("Replies:", "0")) || 0;
+      const reposts = Number(prompt("Reposts:", "0")) || 0;
+      const bookmarks = Number(prompt("Bookmarks (optional):", "0")) || 0;
+      const notes = prompt("Notes (optional):", "") || "";
+      try {
+        await apiFetch(`/api/published-posts/${postId}/performance`, {
+          method: "PATCH",
+          body: JSON.stringify({ impressions, likes, replies, reposts, bookmarks, notes })
+        });
+        await loadBackendData();
+        showToast("Performance captured.");
+      } catch {
+        showToast("Could not capture performance.");
       }
     }
 

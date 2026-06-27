@@ -10,12 +10,37 @@ import { dedupeCandidates } from "../src/ingestion/dedupe.js";
 import { scoreCluster } from "../src/ingestion/scoring.js";
 import { validateHermesPayload } from "../src/hermes/hermesClient.js";
 import { parseFeed } from "../src/providers/rssProvider.js";
+import { registerProvider, getProvider, listProviders, collectCandidatesForQuery } from "../src/providers/index.js";
+import { getDefaultProviders } from "../config/defaultProviders.js";
 
 const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
 const dbPath = path.join(rootDir, "work", "smoke-test.sqlite");
 const port = 3199;
 
 await rm(dbPath, { force: true });
+
+// === Regression tests for querySql PRAGMA busy_timeout ghost row bugfix ===
+await (async () => {
+  const ghostTestDb = path.join(rootDir, "work", "ghost-row-regression.sqlite");
+  await rm(ghostTestDb, { force: true });
+  process.env.DB_PATH = ghostTestDb;
+  const dbMod = await import("../src/db.js");
+  const { querySql: q, execSql: e } = dbMod;
+  // minimal table
+  await e("CREATE TABLE IF NOT EXISTS ghost_test (id TEXT PRIMARY KEY);");
+  // zero-row SELECT must return [] not [{"timeout":5000}]
+  const zero = await q("SELECT * FROM ghost_test WHERE id='no-such-id-12345';");
+  assert(Array.isArray(zero) && zero.length === 0, "querySql on zero-row SELECT must return [] (not PRAGMA ghost row)");
+  // one-row must return real data
+  await e("INSERT INTO ghost_test (id) VALUES ('real1');");
+  const one = await q("SELECT * FROM ghost_test WHERE id='real1';");
+  assert(Array.isArray(one) && one.length === 1 && one[0].id === "real1", "querySql on one-row SELECT must return real row");
+  // cleanup
+  await rm(ghostTestDb, { force: true });
+  // restore? server will override with its env
+  delete process.env.DB_PATH;
+  console.log("querySql ghost row regression: passed");
+})();
 
 const sampleFeed = `<?xml version="1.0"?><rss><channel>
   <item><title>Labor unions win housing affordability pledge</title><link>https://example.test/a</link><description>Workers and tenants push rent control policy.</description><pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate></item>
@@ -88,6 +113,44 @@ try {
 } catch (error) {
   assert(error.status === 400, "invalid Hermes payload should produce a validation error");
 }
+
+// Provider Registry Tests (Phase 4G)
+const registered = listProviders();
+assert(registered.includes("rss"), "registry must list rss");
+assert(registered.includes("news"), "registry must list news");
+assert(registered.includes("mock"), "registry must list mock");
+assert(registered.includes("crawl4ai"), "registry must list future crawl4ai stub");
+assert(registered.includes("x"), "registry must list future x stub");
+assert(registered.includes("reddit"), "registry must list future reddit stub");
+
+const rssFn = getProvider("rss");
+assert(typeof rssFn === "function", "getProvider('rss') must return the collect function");
+
+const defaults = getDefaultProviders();
+assert(Array.isArray(defaults) && defaults.length > 0, "defaultProviders must return array");
+assert(!defaults.includes("crawl4ai"), "defaultProviders must not include unimplemented stubs by default");
+
+// Unknown provider must throw clear error
+try {
+  await collectCandidatesForQuery({ id: "test" }, { provider: "nonexistent", query: "foo" });
+  throw new Error("unknown provider should have thrown");
+} catch (err) {
+  assert(err.message.includes("Unknown provider"), "unknown provider error must mention 'Unknown provider'");
+  assert(err.message.includes("Registered providers"), "unknown provider error must list registered");
+}
+
+// Contract: providers expose collectCandidates via registry
+const newsFn = getProvider("news");
+assert(typeof newsFn === "function", "news provider must be registered");
+
+// Stubs must throw NotImplemented when invoked
+try {
+  await collectCandidatesForQuery({ id: "x" }, { provider: "crawl4ai", query: "test" });
+  throw new Error("crawl4ai stub should throw");
+} catch (err) {
+  assert(err.message.includes("NotImplemented"), "stub must throw NotImplemented");
+}
+
 
 const server = spawn(process.execPath, ["src/server.js"], {
   cwd: rootDir,
@@ -177,6 +240,19 @@ try {
     const detail = await api(`/api/personas/${encodeURIComponent(persona.id)}`);
     assert(detail.id === persona.id, `persona detail route should work for ${persona.id}`);
   }
+
+  // regression: get missing persona returns 404 not ghost object (querySql zero row)
+  let missingPersonaErr = null;
+  try {
+    await api("/api/personas/definitely-missing-ghost-row-test-id-abc123");
+  } catch (e) { missingPersonaErr = e; }
+  assert(missingPersonaErr && (missingPersonaErr.message.includes("404") || missingPersonaErr.message.includes("Not found") || missingPersonaErr.message.includes("failed")), "getPersonaById missing must 404, not return ghost row data");
+
+  // regression: getPublishedPosts with non-matching filter returns [] not ghost
+  const emptyPubs = await fetch(`http://127.0.0.1:${port}/api/published-posts?scheduledPostId=missing-sched-ghost-xyz`, {
+    headers: { "content-type": "application/json" }
+  }).then(r => r.json());
+  assert(Array.isArray(emptyPubs) && emptyPubs.length === 0, "getPublishedPosts(missing scheduledPostId) must return []");
   const policyPete = personas.find((persona) => persona.id === "policy-pete");
   assert(policyPete, "policy-pete should exist in seeded personas");
   const policyPeteDetail = await api("/api/personas/policy-pete");

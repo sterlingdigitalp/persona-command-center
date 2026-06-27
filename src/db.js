@@ -21,19 +21,32 @@ function sqliteArgs(sql, json = false) {
   const args = [];
   if (json) args.push("-json");
   args.push(dbPath);
-  args.push(`PRAGMA foreign_keys = ON;\n${sql}`);
+  args.push(sql);
   return args;
 }
 
 export async function execSql(sql) {
   await ensureDataDir();
-  await execFileAsync("sqlite3", sqliteArgs(sql), { maxBuffer: 1024 * 1024 * 10 });
+  await execFileAsync("sqlite3", [dbPath, `PRAGMA foreign_keys = ON;\nPRAGMA busy_timeout = 5000;\n${sql}`], { maxBuffer: 1024 * 1024 * 10 });
 }
 
 export async function querySql(sql) {
   await ensureDataDir();
-  const { stdout } = await execFileAsync("sqlite3", sqliteArgs(sql, true), { maxBuffer: 1024 * 1024 * 10 });
-  return stdout.trim() ? JSON.parse(stdout) : [];
+  const { stdout } = await execFileAsync("sqlite3", sqliteArgs(`PRAGMA busy_timeout = 5000;\n${sql}`, true), { maxBuffer: 1024 * 1024 * 10 });
+  const trimmed = stdout.trim();
+  if (!trimmed) return [];
+  const idx = trimmed.lastIndexOf("\n[");
+  try {
+    const result = JSON.parse(idx >= 0 ? trimmed.slice(idx + 1) : trimmed);
+    // Discard ghost row from PRAGMA busy_timeout when query produced zero rows.
+    // (sqlite3 -json on "PRAGMA busy_timeout=...; SELECT ..." outputs [{"timeout":5000}] for zero-row cases)
+    if (idx < 0 && Array.isArray(result) && result.length === 1 && "timeout" in result[0]) {
+      return [];
+    }
+    return result;
+  } catch {
+    return [];
+  }
 }
 
 export function sqlString(value) {
@@ -65,6 +78,7 @@ export async function initDb() {
     .split("\n")
     .filter((line) => !line.trim().toUpperCase().startsWith("CREATE INDEX"))
     .join("\n");
+  await execSql("PRAGMA journal_mode = WAL;");
   await execSql(schemaWithoutIndexes);
   await runMigrations();
   await execSql(schema);

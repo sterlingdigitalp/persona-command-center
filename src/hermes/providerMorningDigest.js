@@ -6,6 +6,8 @@ import { generateSuggestedAngle } from "../ingestion/angleEngine.js";
 import { scoreCluster } from "../ingestion/scoring.js";
 import { getHermesAttributionDefaults } from "./hermesClient.js";
 import { selectMorningDigestSignals } from "./chiefOfStaff.js";
+import { listProviders, getProvider } from "../providers/index.js";
+import { getDefaultProviders } from "../../config/defaultProviders.js";
 
 const MAX_EVIDENCE_URLS = 6;
 const MAX_RAW_CANDIDATES = 8;
@@ -15,13 +17,23 @@ function canUseMock(options = {}) {
 }
 
 function normalizeProviderNames(providers, options = {}) {
-  const allowed = new Set(["rss", "news", "mock"]);
-  const names = Array.isArray(providers) && providers.length ? providers : ["rss", "news"];
+  const configuredDefaults = getDefaultProviders();
+  const names = Array.isArray(providers) && providers.length ? providers : configuredDefaults;
+  const registered = new Set(listProviders());
   const normalized = names
     .map((provider) => String(provider).trim().toLowerCase())
-    .filter((provider) => allowed.has(provider))
-    .filter((provider) => provider !== "mock" || canUseMock(options));
-  return normalized.length ? [...new Set(normalized)] : ["rss", "news"];
+    .filter((provider) => {
+      if (!provider) return false;
+      if (!registered.has(provider)) return false;
+      if (provider === "mock") return canUseMock(options);
+      return true;
+    });
+  if (!normalized.length) {
+    // fall back to configured defaults intersected with registered
+    const fallback = configuredDefaults.filter((p) => registered.has(p) && (p !== "mock" || canUseMock(options)));
+    return fallback.length ? [...new Set(fallback)] : (listProviders().filter(p => p !== "mock" || canUseMock(options)).slice(0, 2) || []);
+  }
+  return [...new Set(normalized)];
 }
 
 function scoreFreshCandidates(persona, candidates, recentTopics, maxSignals = 20) {

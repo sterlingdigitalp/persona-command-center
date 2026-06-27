@@ -8,7 +8,8 @@ import {
   parseJsonField,
   querySql,
   sqlJson,
-  sqlString
+  sqlString,
+  dbPath
 } from "./db.js";
 import { buildSignalsForPersona } from "./ingestion/pipeline.js";
 import { importHermesPayload } from "./hermes/hermesImport.js";
@@ -16,9 +17,13 @@ import { buildHermesSimulationPayload } from "./hermes/hermesJobs.js";
 import { runProviderBackedMorningDigest } from "./hermes/providerMorningDigest.js";
 import { buildValidationPayload, CONTRACT_VERSION } from "./hermes/validationJob.js";
 import { getLatestVelocitySummary, getVelocityAlerts } from "./velocity/alertEngine.js";
+import { getProvider, listProviders } from "./providers/index.js";
+import { getDefaultProviders } from "../config/defaultProviders.js";
 
 const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
 const port = Number(process.env.PORT || 3000);
+const activeRequests = new Set();
+const startTime = Date.now();
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -73,7 +78,7 @@ function mapPersonaQuery(row) {
     personaId: row.persona_id,
     query: row.query,
     sourceType: row.source_type,
-    provider: row.provider || row.source_type || "news",
+    provider: row.provider || row.source_type || (getDefaultProviders()[0] || "rss"),
     weight: row.weight || 1,
     isActive: Boolean(row.is_active),
     userEdited: Boolean(row.user_edited),
@@ -447,7 +452,7 @@ async function updatePersona(personaId, payload) {
           ${sqlString(newId("query"))}, ${sqlString(personaId)},
           ${sqlString(normalizedQuery.query)},
           ${sqlString(normalizedQuery.sourceType || "public_feed")},
-          ${sqlString(normalizedQuery.provider || "news")},
+          ${sqlString(normalizedQuery.provider || (getDefaultProviders()[0] || "rss"))},
           ${Number(normalizedQuery.weight || 1)},
           1,
           1,
@@ -474,7 +479,7 @@ async function addPersonaQuery(personaId, payload) {
     )
     VALUES (
       ${sqlString(queryId)}, ${sqlString(personaId)}, ${sqlString(query.query)},
-      ${sqlString(query.sourceType || "public_feed")}, ${sqlString(query.provider || "news")},
+      ${sqlString(query.sourceType || "public_feed")}, ${sqlString(query.provider || (getDefaultProviders()[0] || "rss"))},
       ${Number(query.weight || 1)}, ${query.isActive === false ? 0 : 1},
       1, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP
     );
@@ -518,8 +523,17 @@ function slugifyPersonaId(value) {
 }
 
 function normalizeProvider(provider) {
-  const value = String(provider || "news").trim().toLowerCase();
-  if (!["rss", "news", "mock"].includes(value)) throw validationError("provider must be rss, news, or mock");
+  const value = String(provider || "").trim().toLowerCase();
+  // Fallback handled by callers / config; here we validate against registry if provided
+  if (!value) {
+    // allow empty here; callers decide default (see PART4 config/defaultProviders)
+    return "";
+  }
+  const fn = getProvider(value);
+  if (!fn) {
+    const available = listProviders().join(", ") || "(no providers registered)";
+    throw validationError(`provider must be one of the registered providers: ${available}`);
+  }
   return value;
 }
 
@@ -572,7 +586,7 @@ function normalizeInitializePersonaPayload(payload = {}) {
   if (queries.length < 3) throw validationError(`${persona.name} requires at least 3 search terms`);
   persona.queries = queries.map((query) => normalizeQueryPayload({
     ...query,
-    provider: query.provider || "news",
+    provider: query.provider || (getDefaultProviders()[0] || "rss"),
     weight: query.weight || 3,
     isActive: query.isActive !== false
   }, { partial: false }));
@@ -632,7 +646,7 @@ async function initializePersonas(payload = {}) {
           ${sqlString(personaId)},
           ${sqlString(query.query)},
           ${sqlString(query.sourceType || "public_feed")},
-          ${sqlString(query.provider || "news")},
+          ${sqlString(query.provider || (getDefaultProviders()[0] || "rss"))},
           ${Number(query.weight || 3)},
           ${query.isActive === false ? 0 : 1},
           1,
@@ -675,7 +689,8 @@ function normalizeQueryPayload(payload = {}, { partial = false } = {}) {
     if (!normalized.query) throw validationError("query is required");
   }
   if (!partial || payload.sourceType !== undefined) normalized.sourceType = String(payload.sourceType || "public_feed").trim() || "public_feed";
-  if (!partial || payload.provider !== undefined) normalized.provider = normalizeProvider(payload.provider || "news");
+  const defaults = getDefaultProviders();
+  if (!partial || payload.provider !== undefined) normalized.provider = normalizeProvider(payload.provider || defaults[0] || "");
   if (!partial || payload.weight !== undefined) normalized.weight = normalizeWeight(payload.weight || 1);
   if (payload.isActive !== undefined) normalized.isActive = Boolean(payload.isActive);
   return normalized;
@@ -1767,7 +1782,16 @@ function decodePathPart(value) {
 
 async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, service: "persona-command-center", phase: 4 });
+    sendJson(res, 200, {
+      ok: true,
+      service: "persona-command-center",
+      phase: 4,
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      activeConnections: activeRequests.size,
+      dbPath,
+      walConfigured: true,
+      busyTimeout: 5000
+    });
     return;
   }
 
@@ -2125,6 +2149,10 @@ export async function createAppServer() {
   await initDb();
   await bootstrapHermesMorningBriefing();
   return createServer(async (req, res) => {
+    activeRequests.add(req);
+    const cleanup = () => activeRequests.delete(req);
+    res.on("finish", cleanup);
+    res.on("error", cleanup);
     try {
       const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
       if (req.method === "OPTIONS") {
@@ -2140,8 +2168,30 @@ export async function createAppServer() {
   });
 }
 
+let server;
+
+function shutdown(signal) {
+  if (!server) process.exit(0);
+  console.log(`\nReceived ${signal}, shutting down gracefully...`);
+  server.close(() => process.exit(0));
+  setTimeout(() => {
+    console.error(`${signal} forced shutdown after timeout.`);
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+  process.exit(1);
+});
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = await createAppServer();
+  server = await createAppServer();
   server.listen(port, "127.0.0.1", () => {
     console.log(`Persona Command Center running at http://127.0.0.1:${port}`);
   });
