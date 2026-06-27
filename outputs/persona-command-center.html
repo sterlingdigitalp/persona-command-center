@@ -739,6 +739,234 @@
       font-weight: 700;
     }
 
+    .command-strip {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin: 16px 0 18px;
+    }
+
+    .command-tile {
+      min-height: 86px;
+      padding: 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.035);
+    }
+
+    .command-tile strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .command-tile span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .operator-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .operator-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .operator-card {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(260px, 1.15fr) minmax(150px, 0.38fr);
+      gap: 14px;
+      align-items: stretch;
+      padding: 16px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.04);
+    }
+
+    .operator-card h3 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .operator-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.045);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .pill.good {
+      background: #e8f7ee;
+      color: var(--green);
+    }
+
+    .pill.warn {
+      background: #fff4df;
+      color: var(--amber);
+    }
+
+    .pill.hot {
+      background: var(--accent-soft);
+      color: #0057b7;
+    }
+
+    .why-now {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .quick-post {
+      display: grid;
+      gap: 8px;
+    }
+
+    .draft-choice {
+      display: grid;
+      gap: 8px;
+    }
+
+    .variant-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .variant-tabs label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 30px;
+      padding: 0 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .variant-tabs input {
+      width: 12px;
+      height: 12px;
+      accent-color: var(--accent);
+    }
+
+    .variant-preview {
+      min-height: 38px;
+      padding: 9px 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.025);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .quick-post textarea {
+      min-height: 112px;
+      border-radius: 8px;
+      line-height: 1.4;
+    }
+
+    .operator-actions {
+      display: grid;
+      gap: 8px;
+      align-content: center;
+    }
+
+    .operator-actions .btn {
+      width: 100%;
+      border-radius: 8px;
+    }
+
+    .operator-actions .btn.link {
+      width: auto;
+      justify-self: center;
+    }
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .sparkline {
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      height: 46px;
+      margin-top: 12px;
+    }
+
+    .sparkline span {
+      flex: 1;
+      min-width: 5px;
+      border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg, rgba(0, 113, 227, 0.9), rgba(0, 113, 227, 0.25));
+    }
+
+    .suggestion-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .suggestion {
+      padding: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .suggestion strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .suggestion span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .admin-drawer {
+      margin-top: 20px;
+    }
+
+    .admin-drawer summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
     .toast {
       position: fixed;
       right: 24px;
@@ -776,12 +1004,16 @@
       }
 
       .hero,
-      .split {
+      .split,
+      .operator-layout,
+      .operator-card {
         grid-template-columns: 1fr;
       }
 
       .persona-grid,
-      .platform-grid {
+      .platform-grid,
+      .command-strip,
+      .insight-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -794,7 +1026,9 @@
 
       .persona-grid,
       .platform-grid,
-      .window-grid {
+      .window-grid,
+      .command-strip,
+      .insight-grid {
         grid-template-columns: 1fr;
       }
 
@@ -821,11 +1055,10 @@
         <p>Persona Command Center</p>
       </div>
       <nav class="nav" aria-label="Primary">
-        <button class="active" data-section="brief">Daily Brief</button>
-        <button data-section="schedule">Schedule</button>
+        <button class="active" data-section="brief">Operator</button>
+        <button data-section="schedule">Queue</button>
         <button data-section="personas">Personas</button>
-        <button data-section="ingestion">Ingestion</button>
-        <button data-section="platforms">Platforms</button>
+        <button data-section="ingestion">Sources</button>
       </nav>
     </header>
 
@@ -844,76 +1077,57 @@
     </section>
 
     <section id="brief" class="section active" aria-labelledby="brief-title">
-      <div class="hero">
-        <div class="panel signal">
-          <p class="eyebrow">Today's Signal</p>
-          <h2 id="brief-title">Four focused angles are ready for morning review.</h2>
-          <p>The overnight scan found durable topics for each persona. The strongest opportunities are grounded in persona-specific searches, watched accounts, regional X trends, and corroborating news signals.</p>
+      <div class="section-title" style="margin-top: 18px;">
+        <div>
+          <p class="eyebrow">High-impact operator mode</p>
+          <h2 id="brief-title">Send the best posts, then leave.</h2>
+          <p>Pre-populated opportunities are sorted into account cards. Make short edits only when needed, mark sent or send later, and move on.</p>
         </div>
-        <aside class="panel morning-card" aria-label="Morning status">
-          <div class="metric">
-            <strong>7:15 ET</strong>
-            <span>Human review queue target</span>
-          </div>
-          <div class="metric">
-            <strong>4</strong>
-            <span>Persona lanes with current topics</span>
-          </div>
-          <div class="metric">
-            <strong>8-12 ET</strong>
-            <span>Lightweight trend velocity checks</span>
-          </div>
+      </div>
+
+      <div class="command-strip" id="commandStrip"></div>
+
+      <div class="operator-layout">
+        <div class="operator-grid" id="operatorCards"></div>
+        <aside class="panel quiet-panel">
+          <h3>Suggestions</h3>
+          <div class="suggestion-list" id="suggestionsPanel"></div>
         </aside>
       </div>
 
-      <div class="section-title">
-        <div>
-          <h2>Top Signals Today</h2>
-          <p>Prioritized stories from public RSS and news feeds, scored for relevance, freshness, novelty, velocity, and risk.</p>
-        </div>
-      </div>
-      <div class="grid persona-grid" id="topSignals"></div>
+      <div class="insight-grid" id="trendHighlights"></div>
 
-      <div class="section-title">
-        <div>
-          <h2>Personas</h2>
-          <p>Each lane keeps the same focused review loop: review signals, generate drafts, then schedule approved work.</p>
+      <details class="admin-drawer">
+        <summary>Advanced signal view</summary>
+        <div class="section-title">
+          <div>
+            <h2>Highlights</h2>
+            <p>Raw signal and velocity detail remains available, but it is not the primary workflow.</p>
+          </div>
+          <div class="button-row">
+            <select id="signalPersonaFilter" aria-label="Filter signals by persona" onchange="loadExplorerSignals()"></select>
+            <select id="signalStatusFilter" aria-label="Filter signals by status" onchange="loadExplorerSignals()">
+              <option value="">All status</option>
+              <option value="new">New</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="used">Used</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+            <select id="signalSortFilter" aria-label="Sort signals" onchange="loadExplorerSignals()">
+              <option value="priority">Priority</option>
+              <option value="freshness">Freshness</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="grid persona-grid" id="personaCards"></div>
-
-      <div class="section-title">
-        <div>
-          <h2>Signal Explorer</h2>
-          <p>A lightweight list for filtering all collected signals without adding visual noise.</p>
+        <div class="grid persona-grid" id="topSignals"></div>
+        <div class="grid persona-grid" id="personaCards" style="margin-top: 18px;"></div>
+        <div class="panel list" id="signalExplorer" style="margin-top: 18px;"></div>
+        <div class="panel list" id="velocityAlerts" style="margin-top: 18px;"></div>
+        <div class="panel quiet-panel" style="margin-top: 18px;">
+          <h3>Signal History</h3>
+          <div class="list" id="signalHistory"></div>
         </div>
-        <div class="button-row">
-          <select id="signalPersonaFilter" aria-label="Filter signals by persona" onchange="loadExplorerSignals()"></select>
-          <select id="signalStatusFilter" aria-label="Filter signals by status" onchange="loadExplorerSignals()">
-            <option value="">All status</option>
-            <option value="new">New</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="used">Used</option>
-            <option value="dismissed">Dismissed</option>
-          </select>
-          <select id="signalSortFilter" aria-label="Sort signals" onchange="loadExplorerSignals()">
-            <option value="priority">Priority</option>
-            <option value="freshness">Freshness</option>
-          </select>
-        </div>
-      </div>
-      <div class="panel list" id="signalExplorer"></div>
-      <div class="section-title">
-        <div>
-          <h2>Velocity Alerts</h2>
-          <p>Topics gaining momentum across digest windows.</p>
-        </div>
-      </div>
-      <div class="panel list" id="velocityAlerts"></div>
-      <div class="panel quiet-panel" style="margin-top: 18px;">
-        <h3>Signal History</h3>
-        <div class="list" id="signalHistory"></div>
-      </div>
+      </details>
     </section>
 
     <section id="schedule" class="section" aria-labelledby="schedule-title">
@@ -1128,6 +1342,8 @@
     let hermesHealth = null;
     let hermesMorningDigestLatest = null;
     let velocityAlerts = [];
+    let operatorQueue = null;
+    let publishedPosts = [];
     let backendUnavailable = false;
     let setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
     let lastPersonaRequest = null;
@@ -1286,6 +1502,253 @@
     function topicsForPersona(persona) {
       const personaTopics = signalListFor(persona.id).slice(0, 3).map((signal) => signal.topic);
       return personaTopics;
+    }
+
+    function queuePersonaItems() {
+      return operatorQueue?.personas || personas.map((persona) => ({
+        persona,
+        summary: {
+          openSignalCount: signalListFor(persona.id).filter((signal) => !["used", "dismissed", "archived"].includes(signal.status)).length,
+          velocityAlertCount: velocityAlerts.filter((alert) => alert.personaId === persona.id).length,
+          draftCount: drafts.filter((draft) => draft.personaId === persona.id).length,
+          scheduledCount: scheduleItems.filter((post) => post.personaId === persona.id).length,
+          publishedCount: publishedPosts.filter((post) => post.personaId === persona.id).length
+        },
+        signals: signalListFor(persona.id).filter((signal) => !["used", "dismissed", "archived"].includes(signal.status)),
+        velocityAlerts: velocityAlerts.filter((alert) => alert.personaId === persona.id),
+        drafts: drafts.filter((draft) => draft.personaId === persona.id),
+        scheduledPosts: scheduleItems.filter((post) => post.personaId === persona.id),
+        publishedPosts: publishedPosts.filter((post) => post.personaId === persona.id),
+        draftChoices: []
+      }));
+    }
+
+    function bestDraftFor(item) {
+      const draftRank = { approved: 4, needs_review: 3, scheduled: 2, rejected: 1, published: 0 };
+      return [...(item.drafts || [])].sort((a, b) => (draftRank[b.status] || 0) - (draftRank[a.status] || 0))[0] || null;
+    }
+
+    function bestScheduledFor(item) {
+      return (item.scheduledPosts || []).find((post) => post.status === "scheduled") || null;
+    }
+
+    function bestSignalFor(item) {
+      return [...(item.signals || [])].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))[0] || null;
+    }
+
+    function recommendedTextFor(item) {
+      const scheduled = bestScheduledFor(item);
+      const draft = bestDraftFor(item);
+      const signal = bestSignalFor(item);
+      if (scheduled?.body) return scheduled.body;
+      if (draft?.editedBody || draft?.body) return draft.editedBody || draft.body;
+      if (signal) return `${item.persona.name}: ${signal.topic}. ${signal.suggestedAngle || "Strong angle ready for a concise post."}`;
+      return `${item.persona.name}: No high-confidence post is ready yet.`;
+    }
+
+    function draftVariantsFor(item) {
+      const scheduled = bestScheduledFor(item);
+      if (scheduled?.body) {
+        return { draftA: scheduled.body, draftB: "", source: scheduled, sourceType: "scheduled" };
+      }
+      const draftRank = { approved: 4, needs_review: 3, scheduled: 2, rejected: 1, published: 0 };
+      const usefulDrafts = [...(item.drafts || [])]
+        .filter((draft) => !["rejected", "published"].includes(draft.status))
+        .sort((a, b) => (draftRank[b.status] || 0) - (draftRank[a.status] || 0) || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      const first = usefulDrafts[0];
+      const second = usefulDrafts.find((draft) => draft.id !== first?.id && (draft.editedBody || draft.body) !== (first?.editedBody || first?.body));
+      if (first) {
+        return {
+          draftA: first.editedBody || first.body,
+          draftB: second ? (second.editedBody || second.body) : "",
+          source: first,
+          secondSource: second || null,
+          sourceType: "draft"
+        };
+      }
+      const signal = bestSignalFor(item);
+      const text = recommendedTextFor(item);
+      return { draftA: text, draftB: "", source: signal, sourceType: signal ? "signal" : "persona" };
+    }
+
+    function sourceSignalIdsForChoice(item, variants) {
+      const fromDraft = variants.source?.sourceSignalIds || [];
+      const fromSignal = variants.sourceType === "signal" && variants.source?.id ? [variants.source.id] : [];
+      return [...new Set([...fromDraft, ...fromSignal].filter(Boolean))];
+    }
+
+    function selectedVariantFor(personaId) {
+      const checked = document.querySelector(`input[name="variant-${CSS.escape(personaId)}"]:checked`);
+      return checked?.value || "A";
+    }
+
+    function applyVariantChoice(personaId, draftA, draftB) {
+      const selected = selectedVariantFor(personaId);
+      const field = document.getElementById(`quick-${personaId}`);
+      if (!field) return;
+      if (selected === "A") field.value = draftA || field.value;
+      if (selected === "B") field.value = draftB || field.value;
+      if (selected === "neither") field.value = "";
+    }
+
+    function qualityForText(text) {
+      const length = String(text || "").length;
+      if (!String(text || "").trim()) return { label: "Needs copy", tone: "warn" };
+      if (length > 280) return { label: `${length}/280`, tone: "warn" };
+      if (length > 250) return { label: `${length}/280 tight`, tone: "warn" };
+      return { label: `${length}/280 clean`, tone: "good" };
+    }
+
+    function opportunityFor(item) {
+      const signal = bestSignalFor(item);
+      const alert = (item.velocityAlerts || [])[0];
+      if (alert) return alert.topic || alert.recommendedAction || "Velocity window";
+      if (signal) return signal.topic;
+      if (bestScheduledFor(item)) return "Scheduled post ready";
+      if (bestDraftFor(item)) return "Draft ready for a quick edit";
+      return "No urgent opportunity";
+    }
+
+    function whyNowFor(item) {
+      const alert = (item.velocityAlerts || [])[0];
+      const signal = bestSignalFor(item);
+      if (alert) return `${alert.alertLevel || "Momentum"}: ${alert.explanation || alert.recommendedAction || "topic is moving now"}`;
+      if (signal) return `Priority ${signal.priorityScore || 0}, freshness ${signal.freshnessScore || 0}, velocity ${signal.velocityScore || 0}.`;
+      if (bestScheduledFor(item)) return "Already queued; mark sent after posting manually.";
+      if (bestDraftFor(item)) return "Copy exists; only a brief review is needed.";
+      return "Wait for the next digest or velocity check.";
+    }
+
+    function renderCommandStrip() {
+      const items = queuePersonaItems();
+      const allSignals = items.flatMap((item) => item.signals || []);
+      const readyDrafts = items.flatMap((item) => item.drafts || []).filter((draft) => draft.status === "approved");
+      const needsEdit = items.flatMap((item) => item.drafts || []).filter((draft) => draft.status === "needs_review");
+      const scheduled = items.flatMap((item) => item.scheduledPosts || []).filter((post) => post.status === "scheduled");
+      const today = new Date().toISOString().slice(0, 10);
+      const publishedToday = publishedPosts.filter((post) => String(post.publishedAt || post.createdAt || "").startsWith(today));
+      const momentum = velocityAlerts[0]?.accelerationScore || Math.max(0, ...allSignals.map((signal) => signal.velocityScore || 0));
+      const tiles = [
+        [allSignals.length, "today's best opportunities"],
+        [readyDrafts.length + scheduled.length, "posts ready"],
+        [needsEdit.length, "need brief edit"],
+        [scheduled.length, "scheduled posts"],
+        [publishedToday.length, "published today"],
+        [momentum, "performance / momentum"]
+      ];
+      document.getElementById("commandStrip").innerHTML = tiles.map(([value, label]) => `
+        <div class="command-tile"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
+      `).join("");
+    }
+
+    function renderOperatorCards() {
+      const container = document.getElementById("operatorCards");
+      if (!container) return;
+      const items = queuePersonaItems();
+      container.innerHTML = items.map((item) => {
+        const variants = draftVariantsFor(item);
+        const text = variants.draftA || recommendedTextFor(item);
+        const quality = qualityForText(text);
+        const draft = bestDraftFor(item);
+        const scheduled = bestScheduledFor(item);
+        const signal = bestSignalFor(item);
+        const postRef = scheduled ? `scheduled:${scheduled.id}` : draft ? `draft:${draft.id}` : signal ? `signal:${signal.id}` : `persona:${item.persona.id}`;
+        const personaIdArg = jsArg(item.persona.id);
+        const draftAArg = jsArg(variants.draftA || text);
+        const draftBArg = jsArg(variants.draftB || "");
+        const hasVariantB = Boolean(variants.draftB);
+        const variantPreview = hasVariantB ? "Two local drafts are ready. Pick one, tweak once, then move on." : "One recommended draft is ready.";
+        return `
+          <article class="operator-card">
+            <div>
+              <h3>${escapeHtml(item.persona.name)}</h3>
+              <div class="account">${escapeHtml(item.persona.handle || item.persona.account || "")}</div>
+              <p class="why-now"><strong>Opportunity:</strong> ${escapeHtml(opportunityFor(item))}</p>
+              <p class="why-now"><strong>Why now:</strong> ${escapeHtml(whyNowFor(item))}</p>
+              <div class="operator-meta">
+                <span class="pill ${quality.tone}">${escapeHtml(quality.label)}</span>
+                <span class="pill ${scheduled ? "hot" : draft ? "good" : "warn"}">${scheduled ? "ready to mark sent" : draft ? statusLabel(draft.status) : "needs draft"}</span>
+                ${(item.velocityAlerts || []).length ? `<span class="pill hot">velocity ${(item.velocityAlerts[0].accelerationScore || 0)}</span>` : ""}
+              </div>
+            </div>
+            <div class="quick-post">
+              <div class="draft-choice">
+                <div class="variant-tabs" role="radiogroup" aria-label="${escapeHtml(item.persona.name)} draft choice">
+                  <label><input type="radio" name="variant-${escapeHtml(item.persona.id)}" value="A" checked onchange="applyVariantChoice(${personaIdArg}, ${draftAArg}, ${draftBArg})">Draft A</label>
+                  ${hasVariantB ? `<label><input type="radio" name="variant-${escapeHtml(item.persona.id)}" value="B" onchange="applyVariantChoice(${personaIdArg}, ${draftAArg}, ${draftBArg})">Draft B</label>` : ""}
+                  <label><input type="radio" name="variant-${escapeHtml(item.persona.id)}" value="neither" onchange="applyVariantChoice(${personaIdArg}, ${draftAArg}, ${draftBArg})">Neither</label>
+                </div>
+                <div class="variant-preview">${escapeHtml(variantPreview)}</div>
+              </div>
+              <textarea id="quick-${escapeHtml(item.persona.id)}" aria-label="${escapeHtml(item.persona.name)} recommended post">${escapeHtml(text)}</textarea>
+              <span class="status">Recommended post text</span>
+            </div>
+            <div class="operator-actions">
+              <button class="btn" onclick="markOperatorSent('${postRef}', '${item.persona.id}')">Mark Sent</button>
+              <button class="btn secondary" onclick="sendOperatorLater('${postRef}', '${item.persona.id}')">Send Later</button>
+              <button class="btn link" onclick="skipOperatorItem('${postRef}', '${item.persona.id}')">Skip</button>
+            </div>
+          </article>
+        `;
+      }).join("") || `<article class="card"><p class="niche">No personas are ready. Run setup or refresh the backend.</p></article>`;
+    }
+
+    function renderTrendHighlights() {
+      const container = document.getElementById("trendHighlights");
+      if (!container) return;
+      const topSignals = [...signals].sort((a, b) => (b.velocityScore || 0) - (a.velocityScore || 0)).slice(0, 6);
+      const perf = publishedPosts.reduce((total, post) => total + Number(post.performance?.likes || 0) + Number(post.performance?.reposts || 0) * 2 + Number(post.performance?.replies || 0), 0);
+      const topicCounts = {};
+      for (const signal of signals) {
+        const key = String(signal.query || signal.topic || "topic").split(" ").slice(0, 3).join(" ");
+        topicCounts[key] = (topicCounts[key] || 0) + 1;
+      }
+      const recurring = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([topic, count]) => `${topic} (${count})`).join(", ") || "No recurring clusters yet";
+      const changed = velocityAlerts[0]?.topic || topSignals[0]?.topic || "No material change since last check";
+      const spark = topSignals.length ? topSignals.map((signal) => Math.max(12, signal.velocityScore || 20)) : [18, 24, 20, 34, 28, 32];
+      container.innerHTML = `
+        <article class="card">
+          <h3>Signal velocity trend</h3>
+          <div class="sparkline">${spark.map((value) => `<span style="height:${Math.min(100, value)}%"></span>`).join("")}</div>
+          <p class="why-now">${topSignals[0] ? escapeHtml(topSignals[0].topic) : "Waiting for signals."}</p>
+        </article>
+        <article class="card">
+          <h3>Account performance trend</h3>
+          <div class="sparkline">${[20, 34, 26, 48, 38, Math.max(16, Math.min(96, perf || 24))].map((value) => `<span style="height:${value}%"></span>`).join("")}</div>
+          <p class="why-now">${perf ? `${perf} weighted manual engagements captured.` : "Manual performance appears after mark sent."}</p>
+        </article>
+        <article class="card">
+          <h3>Recurring clusters</h3>
+          <p class="why-now">${escapeHtml(recurring)}</p>
+          <p class="why-now"><strong>Changed:</strong> ${escapeHtml(changed)}</p>
+        </article>
+      `;
+    }
+
+    function renderSuggestionsPanel() {
+      const panel = document.getElementById("suggestionsPanel");
+      if (!panel) return;
+      const items = queuePersonaItems();
+      const bestNow = [...items].sort((a, b) => (bestSignalFor(b)?.priorityScore || 0) - (bestSignalFor(a)?.priorityScore || 0))[0];
+      const needsAttention = items.find((item) => item.summary?.needsDraft || item.summary?.needsSchedule || item.summary?.needsPerformance) || items[0];
+      const staleScheduled = scheduleItems.find((post) => post.status === "scheduled" && new Date(post.scheduledAt || 0).getTime() < Date.now());
+      const rising = velocityAlerts[0];
+      const suggestions = [
+        ["Best post to send now", bestNow ? `${bestNow.persona.name}: ${opportunityFor(bestNow)}` : "No post ready."],
+        ["Account needing attention", needsAttention ? `${needsAttention.persona.name}: ${(needsAttention.recommendedActions || [])[0] || "check queue"}` : "No account needs attention."],
+        ["Stale scheduled item", staleScheduled ? `${personaName(staleScheduled.personaId)}: ${staleScheduled.body}` : "No stale scheduled posts."],
+        ["Rising velocity idea", rising ? `${rising.personaName || personaName(rising.personaId)}: ${rising.topic}` : "No rising velocity alert."]
+      ];
+      panel.innerHTML = suggestions.map(([title, detail]) => `
+        <div class="suggestion"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></div>
+      `).join("");
+    }
+
+    function renderOperatorDashboard() {
+      renderCommandStrip();
+      renderOperatorCards();
+      renderTrendHighlights();
+      renderSuggestionsPanel();
     }
 
     function renderPersonaCards() {
@@ -1486,7 +1949,8 @@
           </div>
           <div class="status">
             ${escapeHtml(item.status)}
-            ${item.id && item.status !== "cancelled" ? `<br><button class="btn link" onclick="cancelPost('${item.id}')">Cancel</button>` : ""}
+            ${item.id && item.status === "scheduled" ? `<br><button class="btn link" onclick="markOperatorSent('scheduled:${item.id}', '${item.personaId || ""}')">Mark Sent</button>` : ""}
+            ${item.id && item.status === "scheduled" ? `<br><button class="btn link" onclick="cancelPost('${item.id}')">Skip</button>` : ""}
           </div>
         </div>
       `).join("");
@@ -1736,12 +2200,14 @@
           hermesHealth = null;
           hermesMorningDigestLatest = null;
           velocityAlerts = [];
+          operatorQueue = null;
+          publishedPosts = [];
           setAppMode("setup");
           renderSetupScreen();
           return;
         }
 
-        const [signalData, explorerData, draftData, scheduleData, runData, settingsData, healthData, digestData, velocityData] = await Promise.all([
+        const [signalData, explorerData, draftData, scheduleData, runData, settingsData, healthData, digestData, velocityData, queueData, publishedData] = await Promise.all([
           optionalApiFetch("/api/signals/today", []),
           optionalApiFetch("/api/signals?includeDismissed=true&limit=50", []),
           optionalApiFetch("/api/drafts", []),
@@ -1750,7 +2216,9 @@
           optionalApiFetch("/api/hermes/settings", null),
           optionalApiFetch("/api/hermes/health", null),
           optionalApiFetch("/api/hermes/morning-digest/latest", null),
-          optionalApiFetch("/api/velocity-alerts", [])
+          optionalApiFetch("/api/velocity-alerts", []),
+          optionalApiFetch("/api/operator/queue", null),
+          optionalApiFetch("/api/published-posts", [])
         ]);
         signals = signalData;
         explorerSignals = explorerData;
@@ -1761,6 +2229,8 @@
         hermesHealth = healthData;
         hermesMorningDigestLatest = digestData;
         velocityAlerts = velocityData;
+        operatorQueue = queueData;
+        publishedPosts = publishedData;
         setAppMode("dashboard");
       } catch (error) {
         console.info("Backend unavailable for persona setup.", error);
@@ -1774,6 +2244,8 @@
         hermesHealth = null;
         hermesMorningDigestLatest = null;
         velocityAlerts = [];
+        operatorQueue = null;
+        publishedPosts = [];
         backendUnavailable = true;
         setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
         lastPersonaError = error;
@@ -1785,6 +2257,7 @@
       }
 
       renderPersonaCards();
+      renderOperatorDashboard();
       renderTopSignals();
       renderPersonaEditors();
       renderSchedule();
@@ -2026,6 +2499,174 @@
         showToast("Post scheduled locally.");
       } catch {
         showToast("Could not schedule post.");
+      }
+    }
+
+    function parseOperatorRef(ref) {
+      const [type, id] = String(ref || "").split(":");
+      return { type, id };
+    }
+
+    function quickText(personaId) {
+      return document.getElementById(`quick-${personaId}`)?.value || "";
+    }
+
+    function operatorItemForPersona(personaId) {
+      return queuePersonaItems().find((item) => item.persona.id === personaId) || null;
+    }
+
+    async function recordOperatorDraftChoice(personaId, outcome) {
+      const item = operatorItemForPersona(personaId);
+      if (!item) return null;
+      const variants = draftVariantsFor(item);
+      const selectedVariant = selectedVariantFor(personaId);
+      const sourceSignalIds = sourceSignalIdsForChoice(item, variants);
+      return apiFetch("/api/operator/draft-choices", {
+        method: "POST",
+        body: JSON.stringify({
+          personaId,
+          signalId: sourceSignalIds[0] || null,
+          sourceSignalIds,
+          draftA: variants.draftA || recommendedTextFor(item),
+          draftB: variants.draftB || null,
+          selectedVariant,
+          editedFinalText: quickText(personaId),
+          choiceReason: selectedVariant === "neither" ? "Operator chose neither variant." : "Operator chose a local draft variant.",
+          outcome
+        })
+      });
+    }
+
+    async function updateOperatorChoiceOutcome(choice, payload) {
+      if (!choice?.id) return null;
+      return apiFetch(`/api/operator/draft-choices/${choice.id}/outcome`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          editedFinalText: quickText(choice.personaId),
+          ...payload
+        })
+      });
+    }
+
+    async function markOperatorSent(ref, personaId) {
+      const { type, id } = parseOperatorRef(ref);
+      const body = quickText(personaId);
+      try {
+        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        let published = null;
+        let scheduled = null;
+        if (type === "scheduled") {
+          await apiFetch(`/api/schedule/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ body })
+          });
+          published = await apiFetch(`/api/schedule/${id}/mark-published`, {
+            method: "POST",
+            body: JSON.stringify({ publishedUrl: "", engagementNotes: "Marked sent manually from operator mode." })
+          });
+        } else if (type === "draft") {
+          await apiFetch(`/api/drafts/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ editedBody: body })
+          });
+          const draft = drafts.find((item) => item.id === id);
+          const approved = draft?.status === "approved"
+            ? draft
+            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator quick send." }) });
+          scheduled = await apiFetch("/api/schedule", {
+            method: "POST",
+            body: JSON.stringify({ draftId: approved.id })
+          });
+          published = await apiFetch(`/api/schedule/${scheduled.id}/mark-published`, {
+            method: "POST",
+            body: JSON.stringify({ publishedUrl: "", engagementNotes: "Marked sent manually from operator mode." })
+          });
+        } else {
+          published = await apiFetch("/api/published-posts", {
+            method: "POST",
+            body: JSON.stringify({
+              personaId,
+              platform: "x",
+              body,
+              sourceSignalIds: type === "signal" ? [id] : [],
+              engagementNotes: "Marked sent manually from operator mode."
+            })
+          });
+        }
+        await updateOperatorChoiceOutcome(choice, {
+          outcome: "published",
+          scheduledPostId: scheduled?.id || published?.scheduledPostId || (type === "scheduled" ? id : null),
+          publishedPostId: published?.id || null
+        });
+        await loadBackendData();
+        showToast("Marked sent locally.");
+      } catch (error) {
+        showToast(`Could not mark sent: ${error.message}`);
+      }
+    }
+
+    async function sendOperatorLater(ref, personaId) {
+      const { type, id } = parseOperatorRef(ref);
+      const body = quickText(personaId);
+      try {
+        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        let scheduled = null;
+        if (type === "scheduled") {
+          showToast("Already scheduled.");
+          await updateOperatorChoiceOutcome(choice, { outcome: "scheduled", scheduledPostId: id });
+          return;
+        }
+        if (type === "draft") {
+          await apiFetch(`/api/drafts/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ editedBody: body })
+          });
+          const draft = drafts.find((item) => item.id === id);
+          const approved = draft?.status === "approved"
+            ? draft
+            : await apiFetch(`/api/drafts/${id}/approve`, { method: "POST", body: JSON.stringify({ reason: "Operator send later." }) });
+          scheduled = await apiFetch("/api/schedule", {
+            method: "POST",
+            body: JSON.stringify({ draftId: approved.id })
+          });
+        } else {
+          scheduled = await apiFetch("/api/schedule", {
+            method: "POST",
+            body: JSON.stringify({
+              personaId,
+              platform: "x",
+              body,
+              sourceSignalIds: type === "signal" ? [id] : []
+            })
+          });
+        }
+        await updateOperatorChoiceOutcome(choice, { outcome: "scheduled", scheduledPostId: scheduled?.id || null });
+        await loadBackendData();
+        showToast("Queued for later.");
+      } catch (error) {
+        showToast(`Could not send later: ${error.message}`);
+      }
+    }
+
+    async function skipOperatorItem(ref, personaId) {
+      const { type, id } = parseOperatorRef(ref);
+      try {
+        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        if (type === "scheduled") {
+          await apiFetch(`/api/schedule/${id}/cancel`, { method: "POST", body: "{}" });
+        } else if (type === "draft") {
+          await apiFetch(`/api/drafts/${id}/reject`, { method: "POST", body: JSON.stringify({ reason: "Skipped in operator mode." }) });
+        } else if (type === "signal") {
+          await apiFetch(`/api/signals/${id}/dismiss`, { method: "POST", body: JSON.stringify({ reason: "Skipped in operator mode." }) });
+        } else {
+          showToast("Nothing to skip.");
+          return;
+        }
+        await updateOperatorChoiceOutcome(choice, { outcome: "skipped" });
+        await loadBackendData();
+        showToast("Skipped.");
+      } catch (error) {
+        showToast(`Could not skip: ${error.message}`);
       }
     }
 

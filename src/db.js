@@ -21,7 +21,7 @@ function sqliteArgs(sql, json = false) {
   const args = [];
   if (json) args.push("-json");
   args.push(dbPath);
-  args.push(sql);
+  args.push(`PRAGMA foreign_keys = ON;\n${sql}`);
   return args;
 }
 
@@ -61,8 +61,13 @@ export async function initDb() {
     readFile(path.join(rootDir, "db", "schema.sql"), "utf8"),
     readFile(path.join(rootDir, "db", "seed.sql"), "utf8")
   ]);
-  await execSql(schema);
+  const schemaWithoutIndexes = schema
+    .split("\n")
+    .filter((line) => !line.trim().toUpperCase().startsWith("CREATE INDEX"))
+    .join("\n");
+  await execSql(schemaWithoutIndexes);
   await runMigrations();
+  await execSql(schema);
   const existingSeedPersonas = await querySql(`
     SELECT id, user_edited, locked_from_seed_overwrite
     FROM personas
@@ -98,7 +103,13 @@ async function getColumns(table) {
   return new Set(columns.map((item) => item.name));
 }
 
+async function tableExists(table) {
+  const rows = await querySql(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${sqlString(table)} LIMIT 1;`);
+  return rows.length > 0;
+}
+
 async function addMissingColumns(table, columnDefs) {
+  if (!(await tableExists(table))) return;
   const columns = await getColumns(table);
   const statements = columnDefs
     .filter(({ column }) => !columns.has(column))
@@ -126,7 +137,9 @@ async function runMigrations() {
       ["hermes_model", "TEXT"],
       ["hermes_endpoint", "TEXT"],
       ["hermes_job_name", "TEXT"],
-      ["validation_id", "TEXT"]
+      ["validation_id", "TEXT"],
+      ["review_reason", "TEXT"],
+      ["dismissal_reason", "TEXT"]
     ]],
     ["ingestion_runs", [
       ["run_type", "TEXT NOT NULL DEFAULT 'mock'"],
@@ -142,7 +155,8 @@ async function runMigrations() {
       ["job_name", "TEXT"],
       ["validation_id", "TEXT"],
       ["notes", "TEXT"],
-      ["error_message", "TEXT"]
+      ["error_message", "TEXT"],
+      ["summary", "TEXT"]
     ]],
     ["persona_queries", [
       ["provider", "TEXT NOT NULL DEFAULT 'news'"],
@@ -160,9 +174,24 @@ async function runMigrations() {
     ["drafts", [
       ["original_body", "TEXT"],
       ["edited_body", "TEXT"],
-      ["platform", "TEXT NOT NULL DEFAULT 'x'"]
+      ["platform", "TEXT NOT NULL DEFAULT 'x'"],
+      ["media_refs", "TEXT NOT NULL DEFAULT '[]'"],
+      ["hashtags", "TEXT NOT NULL DEFAULT '[]'"],
+      ["status", "TEXT NOT NULL DEFAULT 'needs_review'"],
+      ["review_reason", "TEXT"],
+      ["rejection_reason", "TEXT"],
+      ["quality_checks", "TEXT NOT NULL DEFAULT '{}'"],
+      ["source_signal_ids", "TEXT NOT NULL DEFAULT '[]'"],
+      ["created_at", "TEXT"],
+      ["updated_at", "TEXT"]
     ]],
-    ["scheduled_posts", [["updated_at", "TEXT"]]],
+    ["scheduled_posts", [
+      ["media_refs", "TEXT NOT NULL DEFAULT '[]'"],
+      ["hashtags", "TEXT NOT NULL DEFAULT '[]'"],
+      ["source_signal_ids", "TEXT NOT NULL DEFAULT '[]'"],
+      ["created_at", "TEXT"],
+      ["updated_at", "TEXT"]
+    ]],
     ["signal_snapshots", [
       ["freshness_score", "INTEGER NOT NULL DEFAULT 0"],
       ["priority_score", "INTEGER NOT NULL DEFAULT 0"],
@@ -197,8 +226,60 @@ async function runMigrations() {
       FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS published_posts (
+      id TEXT PRIMARY KEY,
+      scheduled_post_id TEXT,
+      draft_id TEXT,
+      persona_id TEXT,
+      platform TEXT NOT NULL DEFAULT 'x',
+      external_post_id TEXT,
+      published_url TEXT,
+      body TEXT NOT NULL,
+      media_refs TEXT NOT NULL DEFAULT '[]',
+      hashtags TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'published_manual',
+      published_at TEXT NOT NULL,
+      source_signal_ids TEXT NOT NULL DEFAULT '[]',
+      impressions INTEGER NOT NULL DEFAULT 0,
+      likes INTEGER NOT NULL DEFAULT 0,
+      reposts INTEGER NOT NULL DEFAULT 0,
+      replies INTEGER NOT NULL DEFAULT 0,
+      bookmarks INTEGER NOT NULL DEFAULT 0,
+      engagement_notes TEXT,
+      performance_updated_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (scheduled_post_id) REFERENCES scheduled_posts(id) ON DELETE SET NULL,
+      FOREIGN KEY (draft_id) REFERENCES drafts(id) ON DELETE SET NULL,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS operator_draft_choices (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      signal_id TEXT,
+      source_signal_ids TEXT NOT NULL DEFAULT '[]',
+      draft_a TEXT NOT NULL,
+      draft_b TEXT,
+      selected_variant TEXT NOT NULL,
+      edited_final_text TEXT NOT NULL,
+      choice_reason TEXT,
+      outcome TEXT NOT NULL DEFAULT 'recorded',
+      scheduled_post_id TEXT,
+      published_post_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CHECK (selected_variant IN ('A', 'B', 'neither')),
+      CHECK (outcome IN ('recorded', 'scheduled', 'published', 'skipped')),
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+      FOREIGN KEY (signal_id) REFERENCES signals(id) ON DELETE SET NULL,
+      FOREIGN KEY (scheduled_post_id) REFERENCES scheduled_posts(id) ON DELETE SET NULL,
+      FOREIGN KEY (published_post_id) REFERENCES published_posts(id) ON DELETE SET NULL
+    );
+
     UPDATE drafts SET original_body = body WHERE original_body IS NULL;
     UPDATE drafts SET edited_body = body WHERE edited_body IS NULL;
+    UPDATE drafts SET quality_checks = '{}' WHERE quality_checks IS NULL;
     UPDATE scheduled_posts SET updated_at = created_at WHERE updated_at IS NULL;
     UPDATE persona_queries SET updated_at = created_at WHERE updated_at IS NULL;
     UPDATE personas
@@ -214,5 +295,9 @@ async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_ingestion_runs_generated_by ON ingestion_runs(generated_by, started_at);
     CREATE INDEX IF NOT EXISTS idx_velocity_alerts_signal ON velocity_alerts(signal_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_velocity_alerts_level ON velocity_alerts(alert_level, created_at);
+    CREATE INDEX IF NOT EXISTS idx_published_posts_persona ON published_posts(persona_id, published_at);
+    CREATE INDEX IF NOT EXISTS idx_published_posts_schedule ON published_posts(scheduled_post_id);
+    CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_persona ON operator_draft_choices(persona_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_signal ON operator_draft_choices(signal_id, created_at);
   `);
 }

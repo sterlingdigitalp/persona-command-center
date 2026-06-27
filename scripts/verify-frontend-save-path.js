@@ -48,6 +48,13 @@ addCheck("debug exposes setup contract", has(/get backendPersonas\(\)/) && has(/
 addCheck("no frontend fallback persona array", !has(/fallbackPersonas/) && !has(/let personas = \[\.\.\./));
 addCheck("no original persona objects rendered from frontend", !has(/name:\s*"The Wonkette"/) && !has(/name:\s*"PolicyPete"/) && !has(/name:\s*"MAGA Memester"/) && !has(/name:\s*"ProgressivePat"/));
 addCheck("legacy fake persona IDs are not used", !has(/id:\s*"p[1-4]"/) && !has(/pcard-[1-4]/));
+addCheck("operator command strip exists", has(/id="commandStrip"/) && has(/today's best opportunities/) && has(/published today/));
+addCheck("operator account cards exist", has(/id="operatorCards"/) && has(/function renderOperatorCards\(\)/) && has(/Mark Sent/) && has(/Send Later/) && has(/Skip/));
+addCheck("operator suggestions and trends exist", has(/id="suggestionsPanel"/) && has(/id="trendHighlights"/) && has(/Signal velocity trend/) && has(/Best post to send now/));
+addCheck("operator queue endpoint is loaded", has(/optionalApiFetch\("\/api\/operator\/queue"/) && has(/optionalApiFetch\("\/api\/published-posts"/));
+addCheck("operator actions use local Phase 5 endpoints", has(/\/api\/schedule\/\$\{id\}\/mark-published/) && has(/\/api\/published-posts/) && has(/\/api\/schedule/));
+addCheck("operator A/B choice controls exist", has(/Draft A/) && has(/Draft B/) && has(/Neither/) && has(/function draftVariantsFor\(item\)/) && has(/function applyVariantChoice/));
+addCheck("operator A/B choices use local learning endpoint", has(/\/api\/operator\/draft-choices/) && has(/recordOperatorDraftChoice/) && has(/updateOperatorChoiceOutcome/));
 
 const failed = checks.filter((check) => !check.ok);
 console.log(failed.length ? "FAIL frontend save path verification" : "PASS frontend save path verification");

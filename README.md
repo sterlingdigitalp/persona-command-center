@@ -10,6 +10,7 @@ The current build includes Phase 4F plus frontend-first persona setup hardening:
 - RSS/news provider-backed ingestion with freshness filtering, deduplication, clustering, scoring, and suggested angles.
 - Hermes simulation, validation, import, attribution, morning digest, and velocity scan support.
 - Velocity alert engine for comparing signal snapshots.
+- Phase 5 local operator loop for review reasons, X draft checks, manual published-post tracking, and manual performance capture.
 - First-run persona setup when the backend has zero personas.
 - Persistent Persona Editor and search-term editor backed only by SQLite state.
 
@@ -24,7 +25,7 @@ Hermes morning digest / velocity scan / midday brief / evening scan
   -> schedule preparation
 ```
 
-Known limitations: this repo does not integrate the X API yet, does not scrape pages, does not publish posts, does not add authentication, does not call external LLMs from the app, and does not add Instagram, YouTube, or TikTok adapters. Hermes cron/operator commands are documented for local integration, but no hosted scheduler is bundled into the app.
+Known limitations: this repo does not integrate the X API yet, does not scrape pages, does not publish posts externally, does not add authentication, does not call external LLMs from the app, and does not add Instagram, YouTube, or TikTok adapters. Hermes cron/operator commands are documented for local integration, but no hosted scheduler is bundled into the app.
 
 Phase 4A adds a real round-trip validation path:
 
@@ -468,6 +469,122 @@ curl -X POST http://127.0.0.1:3000/api/signals/archive \
 
 Archived signals remain in SQLite and leave the main review flow.
 
+## Phase 5 Local Operator Loop
+
+Phase 5 keeps Persona Command Center local-first for X account management. It does not require X credentials, does not call the X API, and does not publish externally. Operators can review signals, generate drafts, approve or reject drafts with reasons, prepare scheduled posts, manually mark a prepared post as published after posting outside the app, and enter performance numbers by hand.
+
+Local workflow:
+
+```text
+signal review
+  -> draft generation / edit
+  -> optional A/B draft choice
+  -> X quality check
+  -> approve or reject with reason
+  -> schedule preparation
+  -> manual mark-as-published
+  -> manual performance capture
+  -> operator queue summary
+```
+
+Review reasons:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/signals/SIGNAL_ID/mark-reviewed \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Relevant and safe for today."}'
+
+curl -X POST http://127.0.0.1:3000/api/signals/SIGNAL_ID/dismiss \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Duplicate or too stale."}'
+```
+
+Draft approval and rejection reasons:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/drafts/DRAFT_ID/approve \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Ready for manual scheduling."}'
+
+curl -X POST http://127.0.0.1:3000/api/drafts/DRAFT_ID/reject \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Needs a stronger hook."}'
+```
+
+Draft responses include `qualityChecks`, a local X readiness check for character count, empty copy, links, hashtag volume, and high-claim terms. These checks are advisory and do not call X.
+
+Operator A/B draft choice:
+
+The Operator screen shows Draft A and Draft B when two usable local variants exist for a persona. If only one variant exists, the card stays in single recommended draft mode. The operator can choose `A`, `B`, or `neither`, make a brief edit in the final text box, then use `Mark Sent`, `Send Later`, or `Skip`. Each choice is stored locally so future tuning can learn which draft style won.
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/operator/draft-choices \
+  -H 'content-type: application/json' \
+  -d '{
+    "personaId":"policy-pete",
+    "signalId":"SIGNAL_ID",
+    "sourceSignalIds":["SIGNAL_ID"],
+    "draftA":"Draft A copy",
+    "draftB":"Draft B copy",
+    "selectedVariant":"B",
+    "editedFinalText":"Final human-edited copy",
+    "choiceReason":"Sharper hook.",
+    "outcome":"recorded"
+  }'
+```
+
+After a local schedule, publish, or skip action, update the same choice with the outcome:
+
+```bash
+curl -X PATCH http://127.0.0.1:3000/api/operator/draft-choices/CHOICE_ID/outcome \
+  -H 'content-type: application/json' \
+  -d '{"outcome":"scheduled","scheduledPostId":"POST_ID","editedFinalText":"Final human-edited copy"}'
+```
+
+Manual mark-as-published:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/schedule/POST_ID/mark-published \
+  -H 'content-type: application/json' \
+  -d '{
+    "publishedUrl":"https://x.local/manual/post",
+    "publishedAt":"2026-06-18T14:00:00.000Z",
+    "engagementNotes":"Posted manually; no X API call made."
+  }'
+```
+
+Manual performance capture:
+
+```bash
+curl -X PATCH http://127.0.0.1:3000/api/published-posts/PUBLISHED_POST_ID/performance \
+  -H 'content-type: application/json' \
+  -d '{
+    "impressions":1200,
+    "likes":84,
+    "reposts":11,
+    "replies":5,
+    "bookmarks":17,
+    "notes":"Metrics entered manually from the X UI."
+  }'
+```
+
+Read the local ledger and queue:
+
+```bash
+curl http://127.0.0.1:3000/api/published-posts
+curl http://127.0.0.1:3000/api/operator/draft-choices
+curl http://127.0.0.1:3000/api/operator/queue
+```
+
+Verify the Phase 5 loop:
+
+```bash
+npm run verify:phase5
+npm run verify:x-api-readiness
+```
+
+The X API readiness report is maintained at [docs/x-api-readiness-report.md](docs/x-api-readiness-report.md). It lists what is complete, what remains manual, future environment variables, required future scopes, the integration sequence once credentials exist, and remaining risks before real X integration.
+
 ## Score History
 
 Every Hermes import or duplicate update writes a `signal_snapshots` row containing:
@@ -541,6 +658,7 @@ SELECT action, entity_type, entity_id, created_at FROM audit_log ORDER BY create
 - `GET /api/signals/:id/history`
 - `GET /api/velocity-alerts`
 - `GET /api/velocity/latest`
+- `GET /api/operator/queue`
 - `PATCH /api/signals/:id`
 - `POST /api/signals/:id/dismiss`
 - `POST /api/signals/:id/mark-reviewed`
@@ -566,6 +684,13 @@ SELECT action, entity_type, entity_id, created_at FROM audit_log ORDER BY create
 - `POST /api/schedule`
 - `PATCH /api/schedule/:id`
 - `POST /api/schedule/:id/cancel`
+- `POST /api/schedule/:id/mark-published`
+- `GET /api/published-posts`
+- `POST /api/published-posts`
+- `PATCH /api/published-posts/:id/performance`
+- `GET /api/operator/draft-choices`
+- `POST /api/operator/draft-choices`
+- `PATCH /api/operator/draft-choices/:id/outcome`
 - `GET /api/audit-log?limit=50`
 
 ## Code Layout
@@ -583,6 +708,8 @@ SELECT action, entity_type, entity_id, created_at FROM audit_log ORDER BY create
 - `scripts/run-provider-morning-digest.js`
 - `scripts/verify-persona-persistence.js`
 - `scripts/verify-velocity-engine.js`
+- `scripts/verify-phase-5-operator-loop.js`
+- `scripts/verify-x-api-readiness.js`
 - `src/providers/rssProvider.js`
 - `src/providers/newsProvider.js`
 - `src/providers/mockProvider.js`
@@ -592,6 +719,7 @@ SELECT action, entity_type, entity_id, created_at FROM audit_log ORDER BY create
 - `src/ingestion/angleEngine.js`
 - `src/ingestion/pipeline.js`
 - `docs/hermes-contract.md`
+- `docs/x-api-readiness-report.md`
 
 ## Future Integration Points
 
@@ -599,7 +727,7 @@ SELECT action, entity_type, entity_id, created_at FROM audit_log ORDER BY create
 - Real Hermes can still call `POST /api/hermes/import` when it has a complete validated payload.
 - X API recent search can be added as a future provider.
 - X velocity metrics can feed the velocity engine through the future-compatible acceleration input shape.
-- X publishing should connect only after a future publishing phase.
+- X publishing should connect only after the local Phase 5 published-post ledger and manual performance loop are proven.
 - Instagram, YouTube, and TikTok adapters should consume normalized scheduled post records later.
 - Scoring can evolve to include source trust, richer entity extraction, editorial safety review, and historical trend baselines.
 
@@ -612,9 +740,13 @@ npm test
 npm run verify:first-run-setup
 npm run verify:persona-persistence
 npm run verify:velocity
+npm run verify:phase5
+npm run verify:x-api-readiness
 npm run hermes:morning-digest
 npm run verify:digest-quality
 npm run verify:hermes-morning
 ```
 
 `npm test` runs a smoke test against a temporary SQLite database. It verifies Hermes export, validation import, model attribution, persistent persona editing, persona query create/update/toggle/delete, provider-backed morning digest, velocity alert creation, acceleration scoring, 72-hour freshness filtering, mock-source rejection, compact digest output, Chief of Staff selection, morning digest attribution inheritance, signal-level attribution overrides, health, validation audit events, simulation mode, duplicate detection, archive workflow, score history creation, RSS parsing, deduplication, clustering, scoring, draft review, scheduling, and persona persistence.
+
+`npm run verify:phase5` verifies the complete local operator loop, including review reasons, X draft checks, lifecycle gates, manual publish idempotency, performance capture, used-signal history, and operator queue output. `npm run verify:x-api-readiness` verifies the pre-X contract: no runtime X credential requirement, no X/Twitter API calls, readiness documentation, future environment variable documentation, future scopes, and integration sequence.

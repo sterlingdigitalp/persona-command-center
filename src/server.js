@@ -111,24 +111,53 @@ function mapSignal(row) {
     validationId: row.validation_id,
     status: row.status || "new",
     reviewedAt: row.reviewed_at,
+    reviewReason: row.review_reason,
     dismissedAt: row.dismissed_at,
+    dismissalReason: row.dismissal_reason,
     usedAt: row.used_at,
     suggestedAngle: row.suggested_angle,
     evidenceUrls: parseJsonField(row.evidence_urls, [])
   };
 }
 
+function evaluateXDraftQuality(body = "") {
+  const text = String(body || "");
+  const warnings = [];
+  const errors = [];
+  if (!text.trim()) errors.push("Draft body is empty.");
+  if (text.length > 280) errors.push(`Draft is ${text.length} characters; X posts should stay at or below 280 characters.`);
+  if (text.length > 250 && text.length <= 280) warnings.push(`Draft is ${text.length} characters; little room remains for edits.`);
+  if (/https?:\/\/\S+/i.test(text)) warnings.push("Draft contains a link; verify the URL before manual posting.");
+  if ((text.match(/#/g) || []).length > 3) warnings.push("Draft uses more than three hashtags.");
+  if (/\b(breaking|exclusive|confirmed)\b/i.test(text)) warnings.push("Draft uses a high-claim term; confirm evidence before posting.");
+  return {
+    platform: "x",
+    characterCount: text.length,
+    maxCharacters: 280,
+    withinLimit: text.length <= 280,
+    hasText: Boolean(text.trim()),
+    warnings,
+    errors,
+    passed: errors.length === 0
+  };
+}
+
 function mapDraft(row) {
+  const body = row.edited_body || row.body;
+  const storedQuality = parseJsonField(row.quality_checks, null);
   return {
     id: row.id,
     personaId: row.persona_id,
-    body: row.edited_body || row.body,
+    body,
     originalBody: row.original_body || row.body,
-    editedBody: row.edited_body || row.body,
+    editedBody: body,
     platform: row.platform || "x",
     mediaRefs: parseJsonField(row.media_refs, []),
     hashtags: parseJsonField(row.hashtags, []),
     status: row.status,
+    reviewReason: row.review_reason,
+    rejectionReason: row.rejection_reason,
+    qualityChecks: storedQuality || evaluateXDraftQuality(body),
     sourceSignalIds: parseJsonField(row.source_signal_ids, []),
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -147,6 +176,54 @@ function mapScheduledPost(row) {
     status: row.status,
     scheduledAt: row.scheduled_at,
     sourceSignalIds: parseJsonField(row.source_signal_ids, []),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapPublishedPost(row) {
+  return {
+    id: row.id,
+    scheduledPostId: row.scheduled_post_id,
+    draftId: row.draft_id,
+    personaId: row.persona_id,
+    platform: row.platform || "x",
+    externalPostId: row.external_post_id,
+    publishedUrl: row.published_url,
+    body: row.body,
+    mediaRefs: parseJsonField(row.media_refs, []),
+    hashtags: parseJsonField(row.hashtags, []),
+    status: row.status || "published_manual",
+    publishedAt: row.published_at,
+    sourceSignalIds: parseJsonField(row.source_signal_ids, []),
+    performance: {
+      impressions: Number(row.impressions || 0),
+      likes: Number(row.likes || 0),
+      reposts: Number(row.reposts || 0),
+      replies: Number(row.replies || 0),
+      bookmarks: Number(row.bookmarks || 0),
+      notes: row.engagement_notes,
+      updatedAt: row.performance_updated_at
+    },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapOperatorDraftChoice(row) {
+  return {
+    id: row.id,
+    personaId: row.persona_id,
+    signalId: row.signal_id,
+    sourceSignalIds: parseJsonField(row.source_signal_ids, []),
+    draftA: row.draft_a,
+    draftB: row.draft_b,
+    selectedVariant: row.selected_variant,
+    editedFinalText: row.edited_final_text,
+    choiceReason: row.choice_reason,
+    outcome: row.outcome,
+    scheduledPostId: row.scheduled_post_id,
+    publishedPostId: row.published_post_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -299,27 +376,34 @@ async function getSignal(signalId) {
   return rows.length ? mapSignal(rows[0]) : null;
 }
 
-async function updateSignal(signalId, payload) {
+async function updateSignal(signalId, payload, options = {}) {
   const existing = await getSignal(signalId);
   if (!existing) return null;
   const now = new Date().toISOString();
   const status = payload.status || existing.status;
+  if (payload.status && !options.allowLifecycleStatus && payload.status !== "new" && payload.status !== existing.status) {
+    throw validationError("Use the explicit signal review, dismiss, archive, or publish workflow endpoint for status changes.");
+  }
   const reviewedAt = status === "reviewed" ? now : existing.reviewedAt;
   const dismissedAt = status === "dismissed" ? now : existing.dismissedAt;
   const usedAt = status === "used" ? now : existing.usedAt;
+  const reviewReason = status === "reviewed" ? (payload.reviewReason ?? payload.reason ?? existing.reviewReason) : existing.reviewReason;
+  const dismissalReason = status === "dismissed" ? (payload.dismissalReason ?? payload.reason ?? existing.dismissalReason) : existing.dismissalReason;
 
   await execSql(`
     UPDATE signals
     SET
       status = ${sqlString(status)},
       reviewed_at = ${sqlString(reviewedAt)},
+      review_reason = ${sqlString(reviewReason)},
       dismissed_at = ${sqlString(dismissedAt)},
+      dismissal_reason = ${sqlString(dismissalReason)},
       used_at = ${sqlString(usedAt)},
       last_seen_at = COALESCE(${sqlString(payload.lastSeenAt)}, last_seen_at)
     WHERE id = ${sqlString(signalId)};
   `);
-  if (status === "dismissed") await audit("signal.dismissed", "signal", signalId);
-  if (status === "reviewed") await audit("signal.reviewed", "signal", signalId);
+  if (status === "dismissed") await audit("signal.dismissed", "signal", signalId, { reason: payload.dismissalReason ?? payload.reason ?? null });
+  if (status === "reviewed") await audit("signal.reviewed", "signal", signalId, { reason: payload.reviewReason ?? payload.reason ?? null });
   return getSignal(signalId);
 }
 
@@ -1094,6 +1178,14 @@ async function generateDrafts(payload) {
   const sourceSignals = sourceSignalIds.length
     ? (await querySql(`SELECT * FROM signals WHERE id IN (${sourceSignalIds.map(sqlString).join(",")});`)).map(mapSignal)
     : (await getSignalsForPersona(personaId)).slice(0, 2);
+  if (sourceSignalIds.length) {
+    const foundIds = new Set(sourceSignals.map((signal) => signal.id));
+    const missingIds = sourceSignalIds.filter((signalId) => !foundIds.has(signalId));
+    const foreignSignals = sourceSignals.filter((signal) => signal.personaId !== personaId);
+    if (missingIds.length || foreignSignals.length) {
+      throw validationError("signalIds must exist and belong to the requested persona");
+    }
+  }
   const draftSeeds = sourceSignals.length ? sourceSignals : [{ topic: persona.niche, suggestedAngle: persona.voiceTone }];
   const created = [];
 
@@ -1103,15 +1195,16 @@ async function generateDrafts(payload) {
     const ids = sourceSignals.map((signal) => signal.id).filter(Boolean);
     const body = `${persona.name}: ${seed.topic}. ${seed.suggestedAngle || "A clean angle is ready for review."} (${index + 1}/${count})`;
     const hashtags = ["#NexusDraft", `#${persona.name.replaceAll(" ", "")}`];
+    const qualityChecks = evaluateXDraftQuality(body);
     await execSql(`
       INSERT INTO drafts (
         id, persona_id, body, original_body, edited_body, platform,
-        media_refs, hashtags, status, source_signal_ids
+        media_refs, hashtags, status, quality_checks, source_signal_ids
       )
       VALUES (
         ${sqlString(draftId)}, ${sqlString(personaId)}, ${sqlString(body)},
         ${sqlString(body)}, ${sqlString(body)}, ${sqlString(payload.platform || "x")},
-        ${sqlJson([])}, ${sqlJson(hashtags)}, 'needs_review', ${sqlJson(ids)}
+        ${sqlJson([])}, ${sqlJson(hashtags)}, 'needs_review', ${sqlJson(qualityChecks)}, ${sqlJson(ids)}
       );
     `);
     created.push({
@@ -1124,6 +1217,7 @@ async function generateDrafts(payload) {
       mediaRefs: [],
       hashtags,
       status: "needs_review",
+      qualityChecks,
       sourceSignalIds: ids
     });
   }
@@ -1140,13 +1234,20 @@ async function getDraft(draftId) {
 async function updateDraft(draftId, payload) {
   const existing = await getDraft(draftId);
   if (!existing) return null;
+  if (payload.status !== undefined && payload.status !== existing.status) {
+    throw validationError("Use the explicit draft approve, reject, regenerate, schedule, or publish workflow endpoint for status changes.");
+  }
+  const nextBody = payload.editedBody ?? payload.body ?? existing.body;
+  const qualityChecks = evaluateXDraftQuality(nextBody);
   await execSql(`
     UPDATE drafts
     SET
       edited_body = COALESCE(${sqlString(payload.editedBody ?? payload.body)}, edited_body),
       body = COALESCE(${sqlString(payload.editedBody ?? payload.body)}, body),
       platform = COALESCE(${sqlString(payload.platform)}, platform),
-      status = COALESCE(${sqlString(payload.status)}, status),
+      review_reason = COALESCE(${sqlString(payload.reviewReason)}, review_reason),
+      rejection_reason = COALESCE(${sqlString(payload.rejectionReason)}, rejection_reason),
+      quality_checks = ${sqlJson(qualityChecks)},
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ${sqlString(draftId)};
   `);
@@ -1154,20 +1255,39 @@ async function updateDraft(draftId, payload) {
   return getDraft(draftId);
 }
 
-async function setDraftStatus(draftId, status) {
+async function setDraftStatus(draftId, status, payload = {}) {
   const existing = await getDraft(draftId);
   if (!existing) return null;
+  if (!["needs_review", "approved", "rejected"].includes(existing.status)) {
+    throw validationError(`Cannot ${status} draft from status ${existing.status}`);
+  }
+  if (status === "approved" && existing.status !== "needs_review") {
+    throw validationError("Only drafts needing review can be approved.");
+  }
+  if (status === "rejected" && existing.status !== "needs_review") {
+    throw validationError("Only drafts needing review can be rejected.");
+  }
+  const qualityChecks = evaluateXDraftQuality(existing.body);
+  if (status === "approved" && !qualityChecks.passed) {
+    throw validationError(`Draft failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  }
+  const reviewReason = payload.reviewReason ?? payload.reason ?? null;
+  const rejectionReason = payload.rejectionReason ?? payload.reason ?? null;
   await execSql(`
     UPDATE drafts
-    SET status = ${sqlString(status)}, updated_at = CURRENT_TIMESTAMP
+    SET status = ${sqlString(status)},
+        review_reason = COALESCE(${sqlString(status === "approved" ? reviewReason : null)}, review_reason),
+        rejection_reason = COALESCE(${sqlString(status === "rejected" ? rejectionReason : null)}, rejection_reason),
+        quality_checks = ${sqlJson(qualityChecks)},
+        updated_at = CURRENT_TIMESTAMP
     WHERE id = ${sqlString(draftId)};
   `);
   if (status === "approved") {
     await markSignalsUsed(existing.sourceSignalIds);
-    await audit("draft.approved", "draft", draftId, { sourceSignalIds: existing.sourceSignalIds });
+    await audit("draft.approved", "draft", draftId, { sourceSignalIds: existing.sourceSignalIds, reason: reviewReason });
   }
   if (status === "rejected") {
-    await audit("draft.rejected", "draft", draftId, { sourceSignalIds: existing.sourceSignalIds });
+    await audit("draft.rejected", "draft", draftId, { sourceSignalIds: existing.sourceSignalIds, reason: rejectionReason });
   }
   return getDraft(draftId);
 }
@@ -1188,7 +1308,11 @@ async function regenerateDraft(draftId) {
   const body = `${existing.originalBody} Refined for review at ${new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.`;
   await execSql(`
     UPDATE drafts
-    SET edited_body = ${sqlString(body)}, body = ${sqlString(body)}, status = 'needs_review', updated_at = CURRENT_TIMESTAMP
+    SET edited_body = ${sqlString(body)},
+        body = ${sqlString(body)},
+        status = 'needs_review',
+        quality_checks = ${sqlJson(evaluateXDraftQuality(body))},
+        updated_at = CURRENT_TIMESTAMP
     WHERE id = ${sqlString(draftId)};
   `);
   await audit("draft.regenerated", "draft", draftId);
@@ -1206,6 +1330,21 @@ async function createScheduledPost(payload) {
       error.status = 404;
       throw error;
     }
+    if (payload.personaId && payload.personaId !== draft.personaId) {
+      throw validationError("Scheduled post persona must match the draft persona.");
+    }
+    if (draft.status !== "approved") {
+      throw validationError("Only approved drafts can be scheduled.");
+    }
+    if (!evaluateXDraftQuality(draft.body).passed) {
+      throw validationError("Draft must pass X quality checks before scheduling.");
+    }
+  }
+
+  const body = payload.body || draft?.body || "Raw scheduled content";
+  const qualityChecks = evaluateXDraftQuality(body);
+  if (!qualityChecks.passed) {
+    throw validationError(`Scheduled post failed X quality checks: ${qualityChecks.errors.join(" ")}`);
   }
 
   const post = {
@@ -1213,7 +1352,7 @@ async function createScheduledPost(payload) {
     draftId,
     personaId: payload.personaId || draft?.personaId || null,
     platform: payload.platform || "x",
-    body: payload.body || draft?.body || "Raw scheduled content",
+    body,
     mediaRefs: payload.mediaRefs || draft?.mediaRefs || [],
     hashtags: payload.hashtags || draft?.hashtags || [],
     status: "scheduled",
@@ -1241,9 +1380,21 @@ async function createScheduledPost(payload) {
   return post;
 }
 
-async function updateScheduledPost(postId, payload) {
+async function updateScheduledPost(postId, payload, options = {}) {
   const existing = await querySql(`SELECT * FROM scheduled_posts WHERE id = ${sqlString(postId)} LIMIT 1;`);
   if (!existing.length) return null;
+  const current = mapScheduledPost(existing[0]);
+  if (payload.status !== undefined && payload.status !== current.status && !options.allowStatusChange) {
+    throw validationError("Use the explicit schedule cancel or mark-published workflow endpoint for status changes.");
+  }
+  if (options.targetStatus === "cancelled" && current.status !== "scheduled") {
+    throw validationError(`Cannot cancel scheduled post from status ${current.status}.`);
+  }
+  const nextBody = payload.body ?? current.body;
+  const qualityChecks = evaluateXDraftQuality(nextBody);
+  if (!qualityChecks.passed) {
+    throw validationError(`Scheduled post failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  }
   await execSql(`
     UPDATE scheduled_posts
     SET
@@ -1259,9 +1410,351 @@ async function updateScheduledPost(postId, payload) {
 }
 
 async function cancelScheduledPost(postId) {
-  const updated = await updateScheduledPost(postId, { status: "cancelled" });
+  const updated = await updateScheduledPost(postId, { status: "cancelled" }, { allowStatusChange: true, targetStatus: "cancelled" });
   if (updated) await audit("scheduled_post.cancelled", "scheduled_post", postId);
   return updated;
+}
+
+async function getScheduledPost(postId) {
+  const rows = await querySql(`SELECT * FROM scheduled_posts WHERE id = ${sqlString(postId)} LIMIT 1;`);
+  return rows.length ? mapScheduledPost(rows[0]) : null;
+}
+
+function normalizeMetric(value) {
+  if (value === undefined || value === null || value === "") return 0;
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number < 0) {
+    throw validationError("Performance metrics must be non-negative numbers.");
+  }
+  return Math.round(number);
+}
+
+async function getPublishedPosts(filters = {}) {
+  const clauses = ["1 = 1"];
+  if (filters.personaId) clauses.push(`persona_id = ${sqlString(filters.personaId)}`);
+  if (filters.scheduledPostId) clauses.push(`scheduled_post_id = ${sqlString(filters.scheduledPostId)}`);
+  const rows = await querySql(`
+    SELECT *
+    FROM published_posts
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY published_at DESC, created_at DESC
+    LIMIT ${Math.max(1, Math.min(200, Number(filters.limit || 100)))};
+  `);
+  return rows.map(mapPublishedPost);
+}
+
+async function getPublishedPost(postId) {
+  const rows = await querySql(`SELECT * FROM published_posts WHERE id = ${sqlString(postId)} LIMIT 1;`);
+  return rows.length ? mapPublishedPost(rows[0]) : null;
+}
+
+async function createPublishedPost(payload = {}) {
+  const scheduledPostId = payload.scheduledPostId || payload.scheduled_post_id || null;
+  let scheduledPost = null;
+  if (scheduledPostId) {
+    scheduledPost = await getScheduledPost(scheduledPostId);
+    if (!scheduledPost) {
+      const error = new Error("Scheduled post not found");
+      error.status = 404;
+      throw error;
+    }
+    const existingPublished = (await getPublishedPosts({ scheduledPostId, limit: 1 }))[0];
+    if (existingPublished) return existingPublished;
+    if (scheduledPost.status !== "scheduled") {
+      throw validationError(`Only scheduled posts can be marked published. Current status: ${scheduledPost.status}.`);
+    }
+  }
+
+  const publishedAt = payload.publishedAt || new Date().toISOString();
+  const post = {
+    id: newId("pub"),
+    scheduledPostId,
+    draftId: payload.draftId || scheduledPost?.draftId || null,
+    personaId: payload.personaId || scheduledPost?.personaId || null,
+    platform: payload.platform || scheduledPost?.platform || "x",
+    externalPostId: payload.externalPostId || null,
+    publishedUrl: payload.publishedUrl || null,
+    body: payload.body || scheduledPost?.body || "",
+    mediaRefs: payload.mediaRefs || scheduledPost?.mediaRefs || [],
+    hashtags: payload.hashtags || scheduledPost?.hashtags || [],
+    status: payload.status || "published_manual",
+    publishedAt,
+    sourceSignalIds: payload.sourceSignalIds || scheduledPost?.sourceSignalIds || [],
+    impressions: normalizeMetric(payload.impressions),
+    likes: normalizeMetric(payload.likes),
+    reposts: normalizeMetric(payload.reposts),
+    replies: normalizeMetric(payload.replies),
+    bookmarks: normalizeMetric(payload.bookmarks),
+    engagementNotes: payload.engagementNotes || payload.notes || null
+  };
+
+  if (!post.body.trim()) {
+    const error = new Error("body is required");
+    error.status = 400;
+    throw error;
+  }
+  const qualityChecks = evaluateXDraftQuality(post.body);
+  if (!qualityChecks.passed) {
+    throw validationError(`Published post failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  }
+
+  await execSql(`
+    INSERT INTO published_posts (
+      id, scheduled_post_id, draft_id, persona_id, platform, external_post_id,
+      published_url, body, media_refs, hashtags, status, published_at,
+      source_signal_ids, impressions, likes, reposts, replies, bookmarks,
+      engagement_notes, performance_updated_at
+    )
+    VALUES (
+      ${sqlString(post.id)}, ${sqlString(post.scheduledPostId)}, ${sqlString(post.draftId)},
+      ${sqlString(post.personaId)}, ${sqlString(post.platform)}, ${sqlString(post.externalPostId)},
+      ${sqlString(post.publishedUrl)}, ${sqlString(post.body)}, ${sqlJson(post.mediaRefs)},
+      ${sqlJson(post.hashtags)}, ${sqlString(post.status)}, ${sqlString(post.publishedAt)},
+      ${sqlJson(post.sourceSignalIds)}, ${post.impressions}, ${post.likes}, ${post.reposts},
+      ${post.replies}, ${post.bookmarks}, ${sqlString(post.engagementNotes)},
+      ${sqlString(post.engagementNotes || post.impressions || post.likes || post.reposts || post.replies || post.bookmarks ? new Date().toISOString() : null)}
+    );
+  `);
+
+  if (scheduledPostId) {
+    await execSql(`
+      UPDATE scheduled_posts
+      SET status = 'published', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${sqlString(scheduledPostId)};
+    `);
+  }
+  if (post.draftId) {
+    await execSql(`UPDATE drafts SET status = 'published', updated_at = CURRENT_TIMESTAMP WHERE id = ${sqlString(post.draftId)};`);
+  }
+  await markSignalsUsed(post.sourceSignalIds);
+  await audit("published_post.created", "published_post", post.id, {
+    scheduledPostId,
+    manual: true,
+    externalPublishAttempted: false
+  });
+  return getPublishedPost(post.id);
+}
+
+async function markScheduledPostPublished(postId, payload = {}) {
+  return createPublishedPost({ ...payload, scheduledPostId: postId });
+}
+
+async function updatePublishedPostPerformance(postId, payload = {}) {
+  const existing = await getPublishedPost(postId);
+  if (!existing) return null;
+  const next = {
+    impressions: payload.impressions === undefined ? existing.performance.impressions : normalizeMetric(payload.impressions),
+    likes: payload.likes === undefined ? existing.performance.likes : normalizeMetric(payload.likes),
+    reposts: payload.reposts === undefined ? existing.performance.reposts : normalizeMetric(payload.reposts),
+    replies: payload.replies === undefined ? existing.performance.replies : normalizeMetric(payload.replies),
+    bookmarks: payload.bookmarks === undefined ? existing.performance.bookmarks : normalizeMetric(payload.bookmarks),
+    notes: payload.engagementNotes ?? payload.notes ?? existing.performance.notes
+  };
+  await execSql(`
+    UPDATE published_posts
+    SET impressions = ${next.impressions},
+        likes = ${next.likes},
+        reposts = ${next.reposts},
+        replies = ${next.replies},
+        bookmarks = ${next.bookmarks},
+        engagement_notes = ${sqlString(next.notes)},
+        performance_updated_at = ${sqlString(new Date().toISOString())},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${sqlString(postId)};
+  `);
+  await audit("published_post.performance_updated", "published_post", postId, next);
+  return getPublishedPost(postId);
+}
+
+async function getOperatorDraftChoices(filters = {}) {
+  const clauses = ["1 = 1"];
+  if (filters.personaId) clauses.push(`persona_id = ${sqlString(filters.personaId)}`);
+  if (filters.signalId) clauses.push(`signal_id = ${sqlString(filters.signalId)}`);
+  if (filters.outcome) clauses.push(`outcome = ${sqlString(filters.outcome)}`);
+  const limit = Math.max(1, Math.min(200, Number(filters.limit || 100)));
+  const rows = await querySql(`
+    SELECT *
+    FROM operator_draft_choices
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY created_at DESC
+    LIMIT ${limit};
+  `);
+  return rows.map(mapOperatorDraftChoice);
+}
+
+async function getOperatorDraftChoice(choiceId) {
+  const rows = await querySql(`SELECT * FROM operator_draft_choices WHERE id = ${sqlString(choiceId)} LIMIT 1;`);
+  return rows.length ? mapOperatorDraftChoice(rows[0]) : null;
+}
+
+function normalizeSelectedVariant(value) {
+  const variant = String(value || "A").toLowerCase();
+  if (variant === "a") return "A";
+  if (variant === "b") return "B";
+  if (variant === "neither") return "neither";
+  throw validationError("selectedVariant must be A, B, or neither.");
+}
+
+function normalizeChoiceOutcome(value) {
+  const outcome = String(value || "recorded");
+  if (["recorded", "scheduled", "published", "skipped"].includes(outcome)) return outcome;
+  throw validationError("outcome must be recorded, scheduled, published, or skipped.");
+}
+
+async function createOperatorDraftChoice(payload = {}) {
+  const personaId = payload.personaId;
+  if (!personaId) throw validationError("personaId is required.");
+  if (!(await getPersonaById(personaId))) {
+    const error = new Error("Persona not found");
+    error.status = 404;
+    throw error;
+  }
+
+  const providedSourceSignalIds = Array.isArray(payload.sourceSignalIds)
+    ? [...new Set(payload.sourceSignalIds.filter(Boolean))]
+    : payload.signalId
+      ? [payload.signalId]
+      : [];
+  const sourceSignalIds = [...new Set([payload.signalId, ...providedSourceSignalIds].filter(Boolean))];
+  const signalId = payload.signalId || sourceSignalIds[0] || null;
+  if (sourceSignalIds.length) {
+    const rows = await querySql(`SELECT * FROM signals WHERE id IN (${sourceSignalIds.map(sqlString).join(",")});`);
+    const found = rows.map(mapSignal);
+    const foundIds = new Set(found.map((signal) => signal.id));
+    const missingIds = sourceSignalIds.filter((id) => !foundIds.has(id));
+    const foreignSignals = found.filter((signal) => signal.personaId !== personaId);
+    if (missingIds.length || foreignSignals.length) {
+      throw validationError("sourceSignalIds must exist and belong to personaId.");
+    }
+  }
+
+  const draftA = String(payload.draftA || "").trim();
+  const draftB = payload.draftB === undefined || payload.draftB === null ? null : String(payload.draftB).trim();
+  const editedFinalText = String(payload.editedFinalText || "").trim();
+  if (!draftA) throw validationError("draftA is required.");
+  if (!editedFinalText) throw validationError("editedFinalText is required.");
+  const selectedVariant = normalizeSelectedVariant(payload.selectedVariant);
+  if (selectedVariant === "B" && !draftB) throw validationError("draftB is required when selectedVariant is B.");
+  const qualityChecks = evaluateXDraftQuality(editedFinalText);
+  if (!qualityChecks.passed) {
+    throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  }
+
+  const outcome = normalizeChoiceOutcome(payload.outcome);
+  const id = newId("choice");
+  await execSql(`
+    INSERT INTO operator_draft_choices (
+      id, persona_id, signal_id, source_signal_ids, draft_a, draft_b,
+      selected_variant, edited_final_text, choice_reason, outcome,
+      scheduled_post_id, published_post_id
+    )
+    VALUES (
+      ${sqlString(id)}, ${sqlString(personaId)}, ${sqlString(signalId)}, ${sqlJson(sourceSignalIds)},
+      ${sqlString(draftA)}, ${sqlString(draftB)}, ${sqlString(selectedVariant)},
+      ${sqlString(editedFinalText)}, ${sqlString(payload.choiceReason || null)}, ${sqlString(outcome)},
+      ${sqlString(payload.scheduledPostId || null)}, ${sqlString(payload.publishedPostId || null)}
+    );
+  `);
+  await audit("operator_draft_choice.created", "operator_draft_choice", id, {
+    personaId,
+    signalId,
+    selectedVariant,
+    outcome,
+    noExternalPublishing: true
+  });
+  return getOperatorDraftChoice(id);
+}
+
+async function updateOperatorDraftChoiceOutcome(choiceId, payload = {}) {
+  const existing = await getOperatorDraftChoice(choiceId);
+  if (!existing) return null;
+  const outcome = normalizeChoiceOutcome(payload.outcome || existing.outcome);
+  const editedFinalText = payload.editedFinalText === undefined
+    ? existing.editedFinalText
+    : String(payload.editedFinalText || "").trim();
+  if (!editedFinalText) throw validationError("editedFinalText is required.");
+  const qualityChecks = evaluateXDraftQuality(editedFinalText);
+  if (!qualityChecks.passed) {
+    throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  }
+  await execSql(`
+    UPDATE operator_draft_choices
+    SET selected_variant = COALESCE(${sqlString(payload.selectedVariant ? normalizeSelectedVariant(payload.selectedVariant) : null)}, selected_variant),
+        edited_final_text = ${sqlString(editedFinalText)},
+        choice_reason = COALESCE(${sqlString(payload.choiceReason)}, choice_reason),
+        outcome = ${sqlString(outcome)},
+        scheduled_post_id = COALESCE(${sqlString(payload.scheduledPostId)}, scheduled_post_id),
+        published_post_id = COALESCE(${sqlString(payload.publishedPostId)}, published_post_id),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${sqlString(choiceId)};
+  `);
+  await audit("operator_draft_choice.outcome_updated", "operator_draft_choice", choiceId, {
+    outcome,
+    scheduledPostId: payload.scheduledPostId || existing.scheduledPostId || null,
+    publishedPostId: payload.publishedPostId || existing.publishedPostId || null
+  });
+  return getOperatorDraftChoice(choiceId);
+}
+
+function countByPersona(items, personaId) {
+  return items.filter((item) => item.personaId === personaId).length;
+}
+
+async function getOperatorQueue() {
+  const [personas, signals, alerts, drafts, scheduledRows, published, choices] = await Promise.all([
+    getPersonas({ includeInactiveQueries: true }),
+    getSignals({ includeDismissed: false, limit: 200 }),
+    getVelocityAlerts({}),
+    querySql("SELECT * FROM drafts ORDER BY updated_at DESC, created_at DESC LIMIT 100;"),
+    querySql("SELECT * FROM scheduled_posts ORDER BY scheduled_at ASC LIMIT 100;"),
+    getPublishedPosts({ limit: 100 }),
+    getOperatorDraftChoices({ limit: 100 })
+  ]);
+  const allDrafts = drafts.map(mapDraft);
+  const scheduled = scheduledRows.map(mapScheduledPost);
+  const queue = personas.map((persona) => {
+    const personaSignals = signals.filter((signal) => signal.personaId === persona.id && !["used", "dismissed", "archived"].includes(signal.status)).slice(0, 8);
+    const personaAlerts = alerts.filter((alert) => alert.personaId === persona.id).slice(0, 5);
+    const personaDrafts = allDrafts.filter((draft) => draft.personaId === persona.id).slice(0, 8);
+    const personaScheduled = scheduled.filter((post) => post.personaId === persona.id).slice(0, 8);
+    const personaPublished = published.filter((post) => post.personaId === persona.id).slice(0, 8);
+    const personaChoices = choices.filter((choice) => choice.personaId === persona.id).slice(0, 8);
+    const needsDraft = personaSignals.length > 0 && !personaDrafts.some((draft) => ["needs_review", "approved", "scheduled"].includes(draft.status));
+    const needsSchedule = personaDrafts.some((draft) => draft.status === "approved") && !personaScheduled.some((post) => post.status === "scheduled");
+    const needsPerformance = personaPublished.some((post) => !post.performance.updatedAt);
+    return {
+      persona,
+      summary: {
+        openSignalCount: personaSignals.length,
+        velocityAlertCount: personaAlerts.length,
+        draftCount: countByPersona(allDrafts, persona.id),
+        scheduledCount: countByPersona(scheduled, persona.id),
+        publishedCount: countByPersona(published, persona.id),
+        needsDraft,
+        needsSchedule,
+        needsPerformance
+      },
+      recommendedActions: [
+        needsDraft ? "Generate or edit an X draft from top signals." : null,
+        personaAlerts.length ? "Review velocity alerts for timing-sensitive posts." : null,
+        needsSchedule ? "Schedule approved drafts manually." : null,
+        needsPerformance ? "Enter manual performance for published posts." : null
+      ].filter(Boolean),
+      signals: personaSignals,
+      velocityAlerts: personaAlerts,
+      drafts: personaDrafts,
+      scheduledPosts: personaScheduled,
+      publishedPosts: personaPublished,
+      draftChoices: personaChoices
+    };
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    noExternalPublishing: true,
+    xCredentialsRequired: false,
+    personas: queue
+  };
 }
 
 function decodePathPart(value) {
@@ -1380,6 +1873,11 @@ async function routeApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/operator/queue") {
+    sendJson(res, 200, await getOperatorQueue());
+    return;
+  }
+
   const signalPersonaMatch = url.pathname.match(/^\/api\/signals\/persona\/([^/]+)$/);
   if (req.method === "GET" && signalPersonaMatch) {
     sendJson(res, 200, await getSignalsForPersona(signalPersonaMatch[1]));
@@ -1404,7 +1902,8 @@ async function routeApi(req, res, url) {
 
   const signalDismissMatch = url.pathname.match(/^\/api\/signals\/([^/]+)\/dismiss$/);
   if (req.method === "POST" && signalDismissMatch) {
-    const updated = await updateSignal(signalDismissMatch[1], { status: "dismissed" });
+    const payload = await readJson(req);
+    const updated = await updateSignal(signalDismissMatch[1], { ...payload, status: "dismissed" }, { allowLifecycleStatus: true });
     if (!updated) sendJson(res, 404, { error: "Signal not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1412,7 +1911,8 @@ async function routeApi(req, res, url) {
 
   const signalReviewedMatch = url.pathname.match(/^\/api\/signals\/([^/]+)\/mark-reviewed$/);
   if (req.method === "POST" && signalReviewedMatch) {
-    const updated = await updateSignal(signalReviewedMatch[1], { status: "reviewed" });
+    const payload = await readJson(req);
+    const updated = await updateSignal(signalReviewedMatch[1], { ...payload, status: "reviewed" }, { allowLifecycleStatus: true });
     if (!updated) sendJson(res, 404, { error: "Signal not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1498,7 +1998,7 @@ async function routeApi(req, res, url) {
 
   const draftApproveMatch = url.pathname.match(/^\/api\/drafts\/([^/]+)\/approve$/);
   if (req.method === "POST" && draftApproveMatch) {
-    const updated = await setDraftStatus(draftApproveMatch[1], "approved");
+    const updated = await setDraftStatus(draftApproveMatch[1], "approved", await readJson(req));
     if (!updated) sendJson(res, 404, { error: "Draft not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1506,7 +2006,7 @@ async function routeApi(req, res, url) {
 
   const draftRejectMatch = url.pathname.match(/^\/api\/drafts\/([^/]+)\/reject$/);
   if (req.method === "POST" && draftRejectMatch) {
-    const updated = await setDraftStatus(draftRejectMatch[1], "rejected");
+    const updated = await setDraftStatus(draftRejectMatch[1], "rejected", await readJson(req));
     if (!updated) sendJson(res, 404, { error: "Draft not found" });
     else sendJson(res, 200, updated);
     return;
@@ -1543,6 +2043,58 @@ async function routeApi(req, res, url) {
   if (req.method === "POST" && scheduleCancelMatch) {
     const updated = await cancelScheduledPost(scheduleCancelMatch[1]);
     if (!updated) sendJson(res, 404, { error: "Scheduled post not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const schedulePublishedMatch = url.pathname.match(/^\/api\/schedule\/([^/]+)\/mark-published$/);
+  if (req.method === "POST" && schedulePublishedMatch) {
+    const published = await markScheduledPostPublished(schedulePublishedMatch[1], await readJson(req));
+    sendJson(res, 201, published);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/published-posts") {
+    sendJson(res, 200, await getPublishedPosts({
+      personaId: url.searchParams.get("personaId"),
+      scheduledPostId: url.searchParams.get("scheduledPostId"),
+      limit: url.searchParams.get("limit")
+    }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/published-posts") {
+    sendJson(res, 201, await createPublishedPost(await readJson(req)));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/operator/draft-choices") {
+    sendJson(res, 200, await getOperatorDraftChoices({
+      personaId: url.searchParams.get("personaId"),
+      signalId: url.searchParams.get("signalId"),
+      outcome: url.searchParams.get("outcome"),
+      limit: url.searchParams.get("limit")
+    }));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/operator/draft-choices") {
+    sendJson(res, 201, await createOperatorDraftChoice(await readJson(req)));
+    return;
+  }
+
+  const operatorChoiceOutcomeMatch = url.pathname.match(/^\/api\/operator\/draft-choices\/([^/]+)\/outcome$/);
+  if (req.method === "PATCH" && operatorChoiceOutcomeMatch) {
+    const updated = await updateOperatorDraftChoiceOutcome(operatorChoiceOutcomeMatch[1], await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Operator draft choice not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const publishedPerformanceMatch = url.pathname.match(/^\/api\/published-posts\/([^/]+)\/performance$/);
+  if (req.method === "PATCH" && publishedPerformanceMatch) {
+    const updated = await updatePublishedPostPerformance(publishedPerformanceMatch[1], await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Published post not found" });
     else sendJson(res, 200, updated);
     return;
   }

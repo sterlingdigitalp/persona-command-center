@@ -78,7 +78,9 @@ CREATE TABLE IF NOT EXISTS signals (
   validation_id TEXT,
   status TEXT NOT NULL DEFAULT 'new',
   reviewed_at TEXT,
+  review_reason TEXT,
   dismissed_at TEXT,
+  dismissal_reason TEXT,
   used_at TEXT,
   suggested_angle TEXT NOT NULL,
   evidence_urls TEXT NOT NULL DEFAULT '[]',
@@ -129,6 +131,9 @@ CREATE TABLE IF NOT EXISTS drafts (
   media_refs TEXT NOT NULL DEFAULT '[]',
   hashtags TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL DEFAULT 'needs_review',
+  review_reason TEXT,
+  rejection_reason TEXT,
+  quality_checks TEXT NOT NULL DEFAULT '{}',
   source_signal_ids TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -150,6 +155,57 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (draft_id) REFERENCES drafts(id) ON DELETE SET NULL,
   FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS published_posts (
+  id TEXT PRIMARY KEY,
+  scheduled_post_id TEXT,
+  draft_id TEXT,
+  persona_id TEXT,
+  platform TEXT NOT NULL DEFAULT 'x',
+  external_post_id TEXT,
+  published_url TEXT,
+  body TEXT NOT NULL,
+  media_refs TEXT NOT NULL DEFAULT '[]',
+  hashtags TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'published_manual',
+  published_at TEXT NOT NULL,
+  source_signal_ids TEXT NOT NULL DEFAULT '[]',
+  impressions INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  reposts INTEGER NOT NULL DEFAULT 0,
+  replies INTEGER NOT NULL DEFAULT 0,
+  bookmarks INTEGER NOT NULL DEFAULT 0,
+  engagement_notes TEXT,
+  performance_updated_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (scheduled_post_id) REFERENCES scheduled_posts(id) ON DELETE SET NULL,
+  FOREIGN KEY (draft_id) REFERENCES drafts(id) ON DELETE SET NULL,
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS operator_draft_choices (
+  id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  signal_id TEXT,
+  source_signal_ids TEXT NOT NULL DEFAULT '[]',
+  draft_a TEXT NOT NULL,
+  draft_b TEXT,
+  selected_variant TEXT NOT NULL,
+  edited_final_text TEXT NOT NULL,
+  choice_reason TEXT,
+  outcome TEXT NOT NULL DEFAULT 'recorded',
+  scheduled_post_id TEXT,
+  published_post_id TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (selected_variant IN ('A', 'B', 'neither')),
+  CHECK (outcome IN ('recorded', 'scheduled', 'published', 'skipped')),
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+  FOREIGN KEY (signal_id) REFERENCES signals(id) ON DELETE SET NULL,
+  FOREIGN KEY (scheduled_post_id) REFERENCES scheduled_posts(id) ON DELETE SET NULL,
+  FOREIGN KEY (published_post_id) REFERENCES published_posts(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS platform_accounts (
@@ -186,3 +242,7 @@ CREATE INDEX IF NOT EXISTS idx_velocity_alerts_signal ON velocity_alerts(signal_
 CREATE INDEX IF NOT EXISTS idx_velocity_alerts_level ON velocity_alerts(alert_level, created_at);
 CREATE INDEX IF NOT EXISTS idx_drafts_persona ON drafts(persona_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_status ON scheduled_posts(status, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_published_posts_persona ON published_posts(persona_id, published_at);
+CREATE INDEX IF NOT EXISTS idx_published_posts_schedule ON published_posts(scheduled_post_id);
+CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_persona ON operator_draft_choices(persona_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_signal ON operator_draft_choices(signal_id, created_at);
