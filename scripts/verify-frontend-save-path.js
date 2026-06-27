@@ -55,6 +55,14 @@ addCheck("operator queue endpoint is loaded", has(/optionalApiFetch\("\/api\/ope
 addCheck("operator actions use local Phase 5 endpoints", has(/\/api\/schedule\/\$\{id\}\/mark-published/) && has(/\/api\/published-posts/) && has(/\/api\/schedule/));
 addCheck("operator A/B choice controls exist", has(/Draft A/) && has(/Draft B/) && has(/Neither/) && has(/function draftVariantsFor\(item\)/) && has(/function applyVariantChoice/));
 addCheck("operator A/B choices use local learning endpoint", has(/\/api\/operator\/draft-choices/) && has(/recordOperatorDraftChoice/) && has(/updateOperatorChoiceOutcome/));
+addCheck("theme toggle exists", has(/theme-toggle/) && has(/role="radiogroup"/));
+addCheck("dark is default theme", has(/"light" \? "light" : "dark"/) && has(/localStorage\.getItem\("pcc-theme"\)/) && has(/documentElement\.dataset\.theme\s*=\s*theme/) && has(/data-theme="dark"/));
+addCheck("localStorage key pcc-theme", has(/localStorage\.setItem\("pcc-theme"/) && has(/localStorage\.getItem\("pcc-theme"/));
+addCheck("data-theme applied to documentElement", has(/document\.documentElement\.dataset\.theme/));
+addCheck("both dark and light theme variable blocks exist", has(/\[data-theme="dark"\]/) && has(/\[data-theme="light"\]/));
+addCheck("setTheme function exists", has(/function setTheme\(theme\)/));
+addCheck("debug exposes theme helpers", has(/get theme\(\)/) && has(/setTheme/));
+addCheck("theme toggle buttons have onclick handlers", has(/onclick="setTheme\('dark'\)"/) && has(/onclick="setTheme\('light'\)"/));
 
 const failed = checks.filter((check) => !check.ok);
 console.log(failed.length ? "FAIL frontend save path verification" : "PASS frontend save path verification");

@@ -3,9 +3,46 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nexus Persona Command Center</title>
+  <title>Command Center</title>
   <style>
     :root {
+      --radius: 18px;
+      --radius-small: 12px;
+      --max: 1180px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #1a1a1e;
+      --surface: rgba(44, 44, 50, 0.92);
+      --surface-solid: #2c2c32;
+      --text: #f5f5f7;
+      --muted: #98989f;
+      --soft: #6e6e76;
+      --line: rgba(255, 255, 255, 0.12);
+      --line-soft: rgba(255, 255, 255, 0.07);
+      --accent: #4a9eff;
+      --accent-soft: rgba(74, 158, 255, 0.15);
+      --green: #34c759;
+      --amber: #ff9f0a;
+      --red: #ff453a;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+      --card-bg: rgba(44, 44, 50, 0.85);
+      --input-bg: rgba(58, 58, 64, 0.9);
+      --nav-bg: rgba(44, 44, 50, 0.7);
+      --badge-text: #4a9eff;
+      --good-bg: rgba(52, 199, 89, 0.15);
+      --warn-bg: rgba(255, 159, 10, 0.15);
+      --pill-bg: rgba(255, 255, 255, 0.06);
+      --preview-bg: rgba(255, 255, 255, 0.03);
+      --btn-text: #1a1a1e;
+      --focus-border: rgba(74, 158, 255, 0.45);
+      --focus-ring: rgba(74, 158, 255, 0.12);
+      --sparkline: linear-gradient(180deg, rgba(74, 158, 255, 0.9), rgba(74, 158, 255, 0.25));
+      --body-glow: rgba(74, 158, 255, 0.06);
+    }
+
+    [data-theme="light"] {
       color-scheme: light;
       --bg: #f5f5f7;
       --surface: rgba(255, 255, 255, 0.82);
@@ -21,9 +58,19 @@
       --amber: #b26a00;
       --red: #d70015;
       --shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
-      --radius: 18px;
-      --radius-small: 12px;
-      --max: 1180px;
+      --card-bg: rgba(255, 255, 255, 0.78);
+      --input-bg: rgba(255, 255, 255, 0.74);
+      --nav-bg: rgba(255, 255, 255, 0.72);
+      --badge-text: #0057b7;
+      --good-bg: #e8f7ee;
+      --warn-bg: #fff4df;
+      --pill-bg: rgba(0, 0, 0, 0.045);
+      --preview-bg: rgba(0, 0, 0, 0.025);
+      --btn-text: #ffffff;
+      --focus-border: rgba(0, 113, 227, 0.45);
+      --focus-ring: rgba(0, 113, 227, 0.12);
+      --sparkline: linear-gradient(180deg, rgba(0, 113, 227, 0.9), rgba(0, 113, 227, 0.25));
+      --body-glow: rgba(0, 113, 227, 0.08);
     }
 
     * {
@@ -34,7 +81,7 @@
       margin: 0;
       min-height: 100vh;
       background:
-        radial-gradient(circle at top left, rgba(0, 113, 227, 0.08), transparent 34rem),
+        radial-gradient(circle at top left, var(--body-glow), transparent 34rem),
         var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
@@ -95,7 +142,7 @@
       display: flex;
       gap: 4px;
       padding: 4px;
-      background: rgba(255, 255, 255, 0.72);
+      background: var(--nav-bg);
       border: 1px solid var(--line-soft);
       border-radius: 999px;
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
@@ -115,6 +162,32 @@
       background: var(--surface-solid);
       color: var(--text);
       box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
+    }
+
+    .theme-toggle {
+      display: flex;
+      gap: 2px;
+      padding: 2px;
+      border-radius: 999px;
+      background: var(--nav-bg);
+      border: 1px solid var(--line-soft);
+    }
+
+    .theme-toggle button {
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    .theme-toggle button.active {
+      background: var(--surface-solid);
+      color: var(--text);
     }
 
     .section {
@@ -150,7 +223,7 @@
       padding: 20px;
       border: 1px solid var(--line-soft);
       border-radius: var(--radius-small);
-      background: rgba(255, 255, 255, 0.58);
+      background: var(--card-bg);
     }
 
     @keyframes fadeIn {
@@ -254,7 +327,7 @@
 
     .card {
       padding: 22px;
-      background: rgba(255, 255, 255, 0.78);
+      background: var(--card-bg);
       border: 1px solid var(--line-soft);
       border-radius: var(--radius);
       box-shadow: 0 14px 42px rgba(0, 0, 0, 0.045);
@@ -295,19 +368,19 @@
       padding: 7px 10px;
       border-radius: 999px;
       background: var(--accent-soft);
-      color: #0057b7;
+      color: var(--badge-text);
       font-size: 13px;
       font-weight: 600;
       text-align: center;
     }
 
     .priority.medium {
-      background: #fff4df;
+      background: var(--warn-bg);
       color: var(--amber);
     }
 
     .priority.low {
-      background: #edf8f0;
+      background: var(--good-bg);
       color: var(--green);
     }
 
@@ -358,13 +431,13 @@
       padding: 0 15px;
       border-radius: 999px;
       background: var(--text);
-      color: white;
+      color: var(--btn-text);
       font-size: 14px;
       font-weight: 600;
     }
 
     .btn.secondary {
-      background: rgba(0, 0, 0, 0.05);
+      background: var(--pill-bg);
       color: var(--text);
     }
 
@@ -415,7 +488,7 @@
       align-items: center;
       padding: 20px 22px;
       border-bottom: 1px solid var(--line-soft);
-      background: rgba(255, 255, 255, 0.72);
+      background: var(--card-bg);
     }
 
     .row:last-child {
@@ -486,7 +559,7 @@
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
-      background: rgba(255, 255, 255, 0.58);
+      background: var(--card-bg);
       padding: 12px;
       color: var(--text);
       font-weight: 400;
@@ -613,7 +686,7 @@
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
-      background: rgba(255, 255, 255, 0.74);
+      background: var(--input-bg);
       color: var(--text);
       padding: 11px 12px;
       outline: none;
@@ -627,8 +700,8 @@
     input:focus,
     textarea:focus,
     select:focus {
-      border-color: rgba(0, 113, 227, 0.45);
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+      border-color: var(--focus-border);
+      box-shadow: 0 0 0 4px var(--focus-ring);
     }
 
     .ingestion-hero {
@@ -709,7 +782,7 @@
       margin: 18px 0 0;
       padding: 16px;
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.035);
+      background: var(--preview-bg);
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
@@ -735,7 +808,7 @@
       display: grid;
       place-items: center;
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.05);
+      background: var(--pill-bg);
       font-weight: 700;
     }
 
@@ -751,7 +824,7 @@
       padding: 14px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.82);
+      background: var(--card-bg);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.035);
     }
 
@@ -788,7 +861,7 @@
       padding: 16px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.86);
+      background: var(--card-bg);
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.04);
     }
 
@@ -811,7 +884,7 @@
       min-height: 24px;
       padding: 0 8px;
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.045);
+      background: var(--pill-bg);
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
@@ -819,18 +892,31 @@
     }
 
     .pill.good {
-      background: #e8f7ee;
+      background: var(--good-bg);
       color: var(--green);
     }
 
     .pill.warn {
-      background: #fff4df;
+      background: var(--warn-bg);
       color: var(--amber);
     }
 
     .pill.hot {
       background: var(--accent-soft);
-      color: #0057b7;
+      color: var(--badge-text);
+    }
+
+    .platform-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     .why-now {
@@ -864,7 +950,7 @@
       padding: 0 9px;
       border: 1px solid var(--line-soft);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.78);
+      background: var(--card-bg);
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
@@ -882,7 +968,7 @@
       padding: 9px 10px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.025);
+      background: var(--preview-bg);
       color: var(--muted);
       font-size: 12px;
       line-height: 1.35;
@@ -929,7 +1015,7 @@
       flex: 1;
       min-width: 5px;
       border-radius: 4px 4px 0 0;
-      background: linear-gradient(180deg, rgba(0, 113, 227, 0.9), rgba(0, 113, 227, 0.25));
+      background: var(--sparkline);
     }
 
     .suggestion-list {
@@ -941,7 +1027,7 @@
       padding: 12px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.72);
+      background: var(--card-bg);
     }
 
     .suggestion strong {
@@ -1048,11 +1134,22 @@
   </style>
 </head>
 <body>
+  <script>
+    (function () {
+      try {
+        const saved = localStorage.getItem("pcc-theme");
+        const theme = saved === "light" ? "light" : "dark";
+        document.documentElement.dataset.theme = theme;
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+      }
+    })();
+  </script>
   <main class="app">
     <header class="topbar">
       <div class="brand">
-        <h1>Nexus</h1>
-        <p>Persona Command Center</p>
+        <h1>Command Center</h1>
+        <p>Persona intelligence workstation</p>
       </div>
       <nav class="nav" aria-label="Primary">
         <button class="active" data-section="brief">Operator</button>
@@ -1060,6 +1157,10 @@
         <button data-section="personas">Personas</button>
         <button data-section="ingestion">Sources</button>
       </nav>
+      <div class="theme-toggle" role="radiogroup" aria-label="Theme">
+        <button role="radio" aria-checked="true" data-theme-value="dark" onclick="setTheme('dark')">Dark</button>
+        <button role="radio" aria-checked="false" data-theme-value="light" onclick="setTheme('light')">Light</button>
+      </div>
     </header>
 
     <section id="setup" class="section" aria-labelledby="setup-title">
@@ -1196,7 +1297,7 @@
       <div class="panel ingestion-hero">
         <p class="eyebrow">Ingestion</p>
         <h2 id="ingestion-title">A quieter pipeline for finding current X topics.</h2>
-        <p>Do not rely only on generic X trending topics. Nexus should blend persona keyword searches, curated account and list monitoring, regional trends when available, news/RSS corroboration, and velocity comparisons against prior snapshots.</p>
+        <p>Do not rely only on generic X trending topics. Blend persona keyword searches, curated account and list monitoring, regional trends when available, news/RSS corroboration, and velocity comparisons against prior snapshots.</p>
         <div class="button-row" style="margin-top: 22px;">
           <button class="btn" onclick="runIngestion()">Run ingestion</button>
           <button class="btn secondary" onclick="showSection('brief')">Return to brief</button>
@@ -1495,6 +1596,11 @@
           }))
         };
       });
+    }
+
+    function platformStatusLabel(status) {
+      const labels = { active: "Ready", configured: "Configured", draft: "Draft", disconnected: "Disconnected" };
+      return labels[status] || "Draft";
     }
 
     function personaName(personaId) {
@@ -1848,7 +1954,10 @@
                 <h3>${escapeHtml(persona.name)}</h3>
                 <div class="account">${escapeHtml(persona.account || persona.handle)}</div>
               </div>
-              <div class="priority ${priorityClass(priority)}">${priority}</div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <span class="platform-pill">${escapeHtml(platformStatusLabel(persona.platformStatus))}</span>
+                <div class="priority ${priorityClass(priority)}">${priority}</div>
+              </div>
             </div>
             <p class="niche">${escapeHtml(persona.niche)}</p>
             <ul class="topics">
@@ -1976,7 +2085,10 @@
               <h3>${escapeHtml(persona.name)}</h3>
               <div class="account">${escapeHtml(persona.account || persona.handle)}</div>
             </div>
-            <div class="status">${state.saving ? "Saving" : state.dirty ? "Unsaved" : state.error ? "Error" : state.saved ? "Saved" : editing ? "Editing" : "Ready"}</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span class="platform-pill">${escapeHtml(platformStatusLabel(persona.platformStatus))}</span>
+              <div class="status">${state.saving ? "Saving" : state.dirty ? "Unsaved" : state.error ? "Error" : state.saved ? "Saved" : editing ? "Editing" : "Ready"}</div>
+            </div>
           </div>
           <div class="form">
             <label>
@@ -3105,7 +3217,10 @@
         } : item);
         personaEditorState[personaId] = { editing: false, dirty: false, saving: false, saved: true, error: "", draft: null };
         await loadBackendData();
-        showToast(`${persona.name} saved.`);
+        const savedPersona = personas.find((item) => item.id === personaId);
+        renderPersonaCards();
+        renderPersonaEditors();
+        showToast(`${savedPersona ? savedPersona.name : "Persona"} saved.`);
       } catch (error) {
         lastPersonaError = error;
         lastPersonaSaveResponse = {
@@ -3148,6 +3263,52 @@
       const updated = await apiFetch(`${personaQueryApiPath(personaId, queryId)}/toggle`, { method: "PATCH", body: "{}" });
       await loadBackendData();
       return updated;
+    }
+
+    function getTheme() {
+      return document.documentElement.dataset.theme || "dark";
+    }
+
+    function setTheme(theme) {
+      if (theme !== "dark" && theme !== "light") return;
+      document.documentElement.dataset.theme = theme;
+      try { localStorage.setItem("pcc-theme", theme); } catch (e) { /* ignore */ }
+      document.querySelectorAll(".theme-toggle button").forEach((btn) => {
+        const isActive = btn.dataset.themeValue === theme;
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-checked", isActive ? "true" : "false");
+      });
+    }
+
+    function verifyFrontend() {
+      const results = [];
+      const brandH1 = document.querySelector(".brand h1");
+      const brandP = document.querySelector(".brand p");
+      results.push({ check: "Product title is Command Center", pass: brandH1?.textContent === "Command Center", detail: brandH1?.textContent });
+      results.push({ check: "Subtitle is Persona intelligence workstation", pass: brandP?.textContent === "Persona intelligence workstation", detail: brandP?.textContent });
+      results.push({ check: "Page title is Command Center", pass: document.title === "Command Center", detail: document.title });
+      results.push({ check: "No hardcoded seed name in brand", pass: !document.title.includes("Nexus"), detail: document.title });
+      const personaCards = document.querySelectorAll("#personaCards .card-header h3, #personaEditorCards .card-header h3");
+      let allFromBackend = true;
+      personaCards.forEach((h3) => {
+        const text = h3.textContent;
+        const matched = personas.some((p) => p.name === text);
+        if (!matched) allFromBackend = false;
+      });
+      results.push({ check: "All card headers match backend persona names", pass: allFromBackend, detail: `${personaCards.length} headers checked` });
+      const avatarDiv = document.querySelector(".brand h1");
+      results.push({ check: "No 'Nexus' visible in header", pass: !(avatarDiv?.textContent || "").includes("Nexus"), detail: avatarDiv?.textContent });
+      const theme = getTheme();
+      results.push({ check: "Theme toggle exists", pass: document.querySelector(".theme-toggle") !== null, detail: document.querySelector(".theme-toggle") ? "found" : "missing" });
+      results.push({ check: "Dark is default theme", pass: theme === "dark", detail: `current=${theme}` });
+      results.push({ check: "localStorage key pcc-theme exists", pass: localStorage.getItem("pcc-theme") !== null, detail: localStorage.getItem("pcc-theme") });
+      results.push({ check: "data-theme applied to documentElement", pass: document.documentElement.dataset.theme !== undefined, detail: document.documentElement.dataset.theme });
+      results.push({ check: "[data-theme=dark] CSS block exists", pass: !!document.querySelector("style")?.textContent?.includes('[data-theme="dark"]'), detail: "checked" });
+      results.push({ check: "[data-theme=light] CSS block exists", pass: !!document.querySelector("style")?.textContent?.includes('[data-theme="light"]'), detail: "checked" });
+      results.push({ check: "__pccDebug.theme accessible", pass: typeof window.__pccDebug?.theme === "string", detail: typeof window.__pccDebug?.theme });
+      results.push({ check: "__pccDebug.setTheme accessible", pass: typeof window.__pccDebug?.setTheme === "function", detail: typeof window.__pccDebug?.setTheme });
+      console.info("Frontend verification results", results);
+      return results;
     }
 
     async function testPersonaSave(personaId = "the-wonkette") {
@@ -3215,13 +3376,17 @@
       deletePersonaQuery,
       togglePersonaQuery,
       testBackend,
-      testPersonaSave
+      testPersonaSave,
+      verifyFrontend,
+      get theme() { return getTheme(); },
+      setTheme
     };
 
     document.querySelectorAll(".nav button").forEach((button) => {
       button.addEventListener("click", () => showSection(button.dataset.section));
     });
 
+    setTheme(getTheme());
     loadBackendData();
   </script>
 </body>
