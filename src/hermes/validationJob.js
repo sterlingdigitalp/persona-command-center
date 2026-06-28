@@ -35,7 +35,7 @@ export function buildValidationPayload(exportState, options = {}) {
             endpoint,
             jobName,
             validationId,
-            query: persona.queries?.[0]?.query || persona.niche,
+            query: persona.trackedEntities?.[0]?.entity_name || persona.queries?.[0]?.query || persona.niche,
             firstSeenAt: generatedAt,
             lastSeenAt: generatedAt,
             velocityScore: 50,

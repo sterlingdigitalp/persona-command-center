@@ -144,12 +144,8 @@ const newsFn = getProvider("news");
 assert(typeof newsFn === "function", "news provider must be registered");
 
 // Stubs must throw NotImplemented when invoked
-try {
-  await collectCandidatesForQuery({ id: "x" }, { provider: "crawl4ai", query: "test" });
-  throw new Error("crawl4ai stub should throw");
-} catch (err) {
-  assert(err.message.includes("NotImplemented"), "stub must throw NotImplemented");
-}
+const c4x = await collectCandidatesForQuery({ id: "x" }, { provider: "crawl4ai", query: "test" });
+assert(Array.isArray(c4x) && c4x.length > 0 && c4x[0].provider === "crawl4ai", "crawl4ai should return mock results without endpoint configured");
 
 
 const server = spawn(process.execPath, ["src/server.js"], {
@@ -528,8 +524,12 @@ try {
   assert(providerDigest.attribution.provider === "lmstudio", "provider-backed morning digest should include attribution");
   assert(providerDigest.skippedPersonaIds.includes(personas[1].id), "provider-backed morning digest should skip draft personas");
   assert(!providerDigest.topSignalsByPersona.some((persona) => persona.personaId === personas[1].id), "skipped personas should not appear in digest selections");
-  assert(JSON.stringify(providerDigest.topSignalsByPersona).includes("smoke updated active query"), "provider-backed morning digest should use active updated persona queries");
-  assert(!JSON.stringify(providerDigest.topSignalsByPersona).includes("Supreme Court ethics"), "provider-backed morning digest should skip inactive persona queries");
+  const entities = personas.find(p => p.id === personas[0].id)?.trackedEntities || [];
+  const digestStr = JSON.stringify(providerDigest.topSignalsByPersona);
+  const entityVals = entities.flatMap(e => [e.entity_name, e.primary_x_handle]).filter(Boolean);
+  const hasEntityContent = entityVals.length > 0 && entityVals.some(v => digestStr.includes(v));
+  assert(hasEntityContent, "provider-backed morning digest should use Watch List entities, not persona_queries");
+  assert(!digestStr.includes("federal budget reconciliation"), "provider-backed morning digest should NOT use legacy persona_queries");
 
   const afterDeleteQueryPersona = await api(`/api/personas/${personas[0].id}/queries/${addedQuery.id}`, { method: "DELETE" });
   assert(!afterDeleteQueryPersona.queries.some((query) => query.id === addedQuery.id), "persona query delete should remove query from backend");

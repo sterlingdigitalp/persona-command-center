@@ -64,17 +64,18 @@ export function buildHermesSimulationPayload(personas, runType = "morning_digest
     endpoint: attribution.endpoint,
     jobName: attribution.jobName,
     generatedAt,
-    personas: personas.map((persona) => {
+        personas: personas.map((persona) => {
       const topics = config.topics[persona.id] || [`${persona.name} briefing signal`];
       return {
         personaId: persona.id,
         signals: topics.map((topic, index) => {
           const base = 72 + config.boost - index * 4;
+          const tracked = persona.trackedEntities?.[index % Math.max(1, (persona.trackedEntities || []).length)];
           return {
             topic,
             source: "Hermes",
             sourceProvider: "Hermes",
-            query: persona.queries?.[index % Math.max(1, persona.queries.length)]?.query || persona.niche,
+            query: tracked?.entity_name || (persona.queries?.[index % Math.max(1, persona.queries.length)]?.query) || persona.niche,
             firstSeenAt: generatedAt,
             lastSeenAt: generatedAt,
             velocityScore: Math.min(99, base - 6 + index * 3),

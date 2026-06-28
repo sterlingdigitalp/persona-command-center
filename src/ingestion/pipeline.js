@@ -10,12 +10,70 @@ const MAX_RAW_CANDIDATES = 8;
 
 export async function collectPersonaCandidates(persona, options = {}) {
   const defaultProviders = getDefaultProviders();
-  const queries = persona.queries?.length ? persona.queries : [{ query: persona.niche, provider: defaultProviders[0] || "rss", weight: 1 }];
+  const queryConfigs = [];
+
+  // PRIMARY: Watch List entities → one queryConfig per active monitor flag
+  const entities = persona.trackedEntities || [];
+  for (const sub of entities) {
+    const entityName = sub.entity_name || sub.name || sub.entityId || "";
+    const handle = sub.primary_x_handle || entityName;
+    const priority = sub.priority || 5;
+
+    if (sub.monitor_x) {
+      queryConfigs.push({ query: handle, provider: "x", weight: priority, sourceType: "entity", entityId: sub.entityId, entityName });
+    }
+    if (sub.monitor_mentions) {
+      queryConfigs.push({ query: handle, provider: "x", weight: Math.round(priority * 0.8), sourceType: "entity_mentions", entityId: sub.entityId, entityName });
+    }
+    if (sub.monitor_rss) {
+      queryConfigs.push({ query: entityName, provider: "rss", weight: Math.round(priority * 0.6), sourceType: "entity", entityId: sub.entityId, entityName });
+      queryConfigs.push({ query: entityName, provider: "news", weight: Math.round(priority * 0.5), sourceType: "entity", entityId: sub.entityId, entityName });
+    }
+    if (sub.monitor_crawl4ai) {
+      queryConfigs.push({ query: entityName, provider: "crawl4ai", weight: Math.round(priority * 0.4), sourceType: "entity", entityId: sub.entityId, entityName });
+    }
+    if (sub.monitor_searchagent) {
+      queryConfigs.push({ query: entityName, provider: "searchagent", weight: Math.round(priority * 0.3), sourceType: "entity", entityId: sub.entityId, entityName });
+    }
+  }
+
+  // SECONDARY: rssTopics (Topic Monitoring — moved to Advanced section, still supported)
+  const rssTopics = persona.rssTopics || [];
+  for (const topic of rssTopics) {
+    if (topic.is_active === false) continue;
+    queryConfigs.push({
+      query: topic.topic || persona.niche,
+      provider: topic.provider || defaultProviders[0] || "rss",
+      weight: topic.weight || 1,
+      sourceType: "topic",
+      feedUrl: topic.feed_url,
+      feedUrls: topic.feed_urls || (topic.feed_url ? [topic.feed_url] : undefined)
+    });
+  }
+
+  // TERTIARY: crawlTargets (Authoritative Sources — Advanced section)
+  const crawlTargets = persona.crawlTargets || [];
+  for (const target of crawlTargets) {
+    queryConfigs.push({
+      query: target.label || persona.niche,
+      provider: "crawl4ai",
+      weight: 1,
+      sourceType: "crawl_target",
+      url: target.url,
+      notes: target.notes
+    });
+  }
+
+  // FALLBACK: persona niche if no config sources exist
+  if (!queryConfigs.length) {
+    queryConfigs.push({ query: persona.niche, provider: defaultProviders[0] || "rss", weight: 1, sourceType: "fallback" });
+  }
+
   const providerNames = Array.isArray(options.providerNames) && options.providerNames.length
     ? options.providerNames
     : null;
 
-  const fetchTasks = queries.flatMap((queryConfig) => {
+  const fetchTasks = queryConfigs.flatMap((queryConfig) => {
     const providers = providerNames || [queryConfig.provider || (defaultProviders[0] || "rss")];
     return providers.map(async (provider) => {
       const effectiveQuery = { ...queryConfig, provider };
@@ -26,7 +84,10 @@ export async function collectPersonaCandidates(persona, options = {}) {
           ...candidate.rawData,
           query: effectiveQuery.query,
           provider: effectiveQuery.provider,
-          weight: effectiveQuery.weight || 1
+          weight: effectiveQuery.weight || 1,
+          entityName: queryConfig.entityName || null,
+          entityId: queryConfig.entityId || null,
+          sourceType: queryConfig.sourceType || null
         }
       }));
     });

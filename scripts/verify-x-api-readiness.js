@@ -67,15 +67,31 @@ try {
     server.includes("noExternalPublishing: true") && server.includes("xCredentialsRequired: false"),
     "noExternalPublishing=true xCredentialsRequired=false"
   );
+  const xProvider = await read("src/providers/xProvider.js");
   addCheck(
-    "no X/Twitter network endpoints are called from app code",
-    !/api\.x\.com|api\.twitter\.com|twitter\.com\/i\/oauth|x\.com\/i\/oauth/i.test(server + migrations + phase5Script),
-    "no X API URLs found"
+    "X provider implements live X API v2 retrieval",
+    xProvider.includes("api.twitter.com/2") && xProvider.includes("X_BEARER_TOKEN"),
+    "xProvider.js uses X API v2 Bearer Token"
   );
   addCheck(
-    "no X credentials are required by runtime code",
-    !/process\.env\.(X_|TWITTER_)/.test(server + migrations),
-    "no X_* or TWITTER_* env reads in runtime"
+    "X provider returns structured error on auth failure",
+    xProvider.includes("retrievalStatus") && xProvider.includes("auth_failed"),
+    "structured error handling for auth/rate-limit/network"
+  );
+  addCheck(
+    "X provider replaces NotImplemented stub",
+    !xProvider.includes("NotImplemented"),
+    "xProvider.js no longer throws NotImplemented"
+  );
+  addCheck(
+    "X API v2 network endpoints are called from xProvider",
+    /api\.twitter\.com\/2/.test(xProvider),
+    "xProvider.js calls api.twitter.com/2 endpoints"
+  );
+  addCheck(
+    "X_BEARER_TOKEN is read at runtime",
+    xProvider.includes('process.env.X_BEARER_TOKEN'),
+    "X_BEARER_TOKEN env var used for Bearer Token auth"
   );
   addCheck(
     "phase 5 verifier covers full local workflow",
@@ -99,11 +115,10 @@ try {
     "verify:x-api-readiness"
   );
   addCheck(
-    "README documents no-X workflow and readiness check",
+    "README documents X API workflow and readiness check",
     hasAll(readme, [
       "Phase 5 Local Operator Loop",
-      "does not require X credentials",
-      "does not call the X API",
+      "X_BEARER_TOKEN",
       "npm run verify:phase5",
       "npm run verify:x-api-readiness"
     ]),

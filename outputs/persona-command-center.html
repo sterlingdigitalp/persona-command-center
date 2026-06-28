@@ -333,6 +333,11 @@
       box-shadow: 0 14px 42px rgba(0, 0, 0, 0.045);
     }
 
+    .draft-focused {
+      border-color: rgba(0, 122, 255, 0.42);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1), 0 14px 42px rgba(0, 0, 0, 0.045);
+    }
+
     .card-header {
       display: flex;
       align-items: flex-start;
@@ -919,6 +924,160 @@
       white-space: nowrap;
     }
 
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: var(--pill-bg);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .source-context {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: var(--preview-bg);
+      font-size: 12px;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .source-context.open {
+      display: block;
+    }
+
+    .source-context-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 3px 12px;
+    }
+
+    .source-context-grid dt {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .source-context-grid dd {
+      margin: 0;
+    }
+
+    .source-context-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--line-soft);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 6px;
+      vertical-align: middle;
+      transition: background 0.15s;
+    }
+
+    .source-context-toggle:hover {
+      background: var(--pill-bg);
+      color: var(--text);
+    }
+
+    .evidence-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .evidence-item {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 11px;
+      line-height: 1.3;
+      overflow: hidden;
+    }
+
+    .evidence-item a {
+      color: var(--accent);
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    .evidence-item a:hover {
+      text-decoration: underline;
+    }
+
+    .evidence-source {
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .confidence-high {
+      color: var(--green);
+    }
+
+    .confidence-medium {
+      color: var(--amber);
+    }
+
+    .confidence-low {
+      color: var(--muted);
+    }
+
+    .timeline-compact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px 0;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .timeline-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .timeline-step .dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    .timeline-step .dot.done {
+      background: var(--green);
+    }
+
+    .timeline-step .dot.active {
+      background: var(--accent);
+    }
+
+    .timeline-step .dot.pending {
+      background: var(--line-soft);
+    }
+
+    .timeline-arrow {
+      color: var(--line-soft);
+      margin: 0 4px;
+    }
+
     .why-now {
       margin: 12px 0 0;
       color: var(--muted);
@@ -1131,6 +1290,153 @@
         white-space: normal;
       }
     }
+
+    .persona-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border, #333); }
+    .persona-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .persona-section-header h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .persona-section-header button { background: none; border: 1px solid var(--border, #333); color: var(--text, #e0e0e0); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .persona-section-header button:hover { background: var(--accent, #4a9eff); color: #fff; }
+
+    /* Mobile-first Operator Front Page */
+    .daily-briefing {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    @media (max-width: 800px) {
+      .daily-briefing { grid-template-columns: 1fr; }
+      .highlight, .suggested-post { padding: 8px 10px; }
+    }
+    /* mobile friendly marker */
+    .daily-briefing { /* max-width: 800px responsive */ }
+    .persona-block { margin-bottom: 12px; }
+    .persona-block h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+    .highlight {
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: var(--surface);
+      font-size: 12px;
+    }
+    .highlight .why { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .suggested-post {
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: var(--card-bg);
+    }
+    .suggested-post .post-text {
+      font-size: 13px;
+      line-height: 1.3;
+      margin-bottom: 6px;
+      white-space: pre-wrap;
+    }
+    .suggested-post .meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .suggested-post .actions button {
+      font-size: 11px;
+      padding: 2px 8px;
+      margin-right: 4px;
+    }
+    .highlight .conf { font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--pill-bg); }
+
+    .interest-item, .tracked-entity-item, .rss-topic-item, .crawl-target-item {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      border: 1px solid var(--border, #333); border-radius: 4px; margin-bottom: 6px;
+    }
+
+    .interest-item .interest-label { flex: 1; }
+    .interest-item .interest-weight { width: 60px; }
+    .interest-item .interest-remove, .entity-remove, .topic-remove, .crawl-remove {
+      background: none; border: none; color: #ff4444; cursor: pointer; font-size: 14px; padding: 2px 6px;
+    }
+
+    .rss-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+      background: #2a2a3e; color: #8a8aff;
+    }
+
+    .frequency-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+      background: #1e3a2e; color: #4ade80;
+    }
+
+    .monitor-checkboxes { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .monitor-checkboxes label { font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 2px; }
+    .monitor-checkboxes input[type="checkbox"] { margin: 0; }
+
+    .add-form { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    .add-form input, .add-form select { padding: 4px 8px; border: 1px solid var(--border, #333); border-radius: 4px; background: var(--bg-secondary, #1a1a2e); color: var(--text, #e0e0e0); font-size: 12px; }
+    .add-form button { padding: 4px 10px; border: 1px solid var(--accent, #4a9eff); border-radius: 4px; background: var(--accent, #4a9eff); color: #fff; cursor: pointer; font-size: 12px; }
+    .add-form button:hover { opacity: 0.9; }
+
+    .name-type-label { font-weight: 600; font-size: 12px; min-width: 80px; }
+    .priority-input { width: 50px; padding: 2px 4px; border: 1px solid var(--border, #333); border-radius: 3px; background: var(--bg-secondary); color: var(--text); font-size: 12px; text-align: center; }
+    .url-text { font-size: 11px; color: var(--text-secondary, #999); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+    .interests-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+    .interest-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 12px; font-size: 12px;
+      background: var(--accent, #4a9eff); color: #fff;
+    }
+    .interest-chip-remove {
+      background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer;
+      font-size: 14px; line-height: 1; padding: 0; margin: 0;
+    }
+    .interest-chip-remove:hover { color: #fff; }
+
+    .watch-list .watch-list-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border: 1px solid var(--border, #333);
+      border-radius: 4px; margin-bottom: 6px;
+    }
+    .watch-list-name { font-weight: 600; font-size: 13px; min-width: 100px; }
+    .watch-list-handle { font-size: 11px; color: var(--text-secondary, #999); }
+    .watch-list-remove {
+      background: none; border: none; color: #ff4444; cursor: pointer;
+      font-size: 16px; padding: 2px 6px;
+    }
+    .watch-list .add-form { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    .watch-list .add-form input, .watch-list .add-form select { padding: 4px 8px; border: 1px solid var(--border, #333); border-radius: 4px; background: var(--bg-secondary, #1a1a2e); color: var(--text, #e0e0e0); font-size: 12px; }
+    .watch-list .add-form button { padding: 4px 10px; border: 1px solid var(--accent, #4a9eff); border-radius: 4px; background: var(--accent, #4a9eff); color: #fff; cursor: pointer; font-size: 12px; }
+
+    .advanced-toggle { cursor: pointer; user-select: none; }
+    .advanced-toggle:hover { opacity: 0.8; }
+    .advanced-arrow { font-size: 10px; color: var(--text-secondary, #999); }
+    .advanced-body { padding-top: 8px; }
+
+    .topic-item, .source-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border: 1px solid var(--border, #333);
+      border-radius: 4px; margin-bottom: 4px; font-size: 12px;
+    }
+    .topic-label, .source-label { flex: 1; }
+    .topic-remove, .source-remove {
+      background: none; border: none; color: #ff4444; cursor: pointer;
+      font-size: 14px; padding: 2px 6px;
+    }
+
+    .watch-add-form {
+      margin-top: 8px; padding: 10px; border: 1px solid var(--border, #333);
+      border-radius: 4px; background: var(--bg-secondary, #1a1a2e);
+    }
+    .watch-add-row {
+      display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px;
+    }
+    .watch-add-row label { font-size: 11px; color: var(--text-secondary, #999); }
+    .watch-add-row input {
+      padding: 6px 8px; border: 1px solid var(--border, #333); border-radius: 4px;
+      background: var(--bg, #0d0d1a); color: var(--text, #e0e0e0); font-size: 13px;
+    }
+    .watch-add-row input:focus { outline: none; border-color: var(--accent, #4a9eff); }
+    .watch-add-actions { display: flex; gap: 8px; align-items: center; }
   </style>
 </head>
 <body>
@@ -1157,9 +1463,14 @@
         <button data-section="personas">Personas</button>
         <button data-section="ingestion">Sources</button>
       </nav>
-      <div class="theme-toggle" role="radiogroup" aria-label="Theme">
-        <button role="radio" aria-checked="true" data-theme-value="dark" onclick="setTheme('dark')">Dark</button>
-        <button role="radio" aria-checked="false" data-theme-value="light" onclick="setTheme('light')">Light</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="notificationBell" class="notification-bell" onclick="toggleNotifications()" title="Notifications" style="background:none;border:none;cursor:pointer;font-size:18px;position:relative;padding:4px 8px;">
+          🔔<span id="notificationBadge" class="notification-badge" style="display:none;position:absolute;top:0;right:0;background:#f00;color:#fff;border-radius:50%;font-size:10px;padding:1px 4px;min-width:14px;text-align:center;"></span>
+        </button>
+        <div class="theme-toggle" role="radiogroup" aria-label="Theme">
+          <button role="radio" aria-checked="true" data-theme-value="dark" onclick="setTheme('dark')">Dark</button>
+          <button role="radio" aria-checked="false" data-theme-value="light" onclick="setTheme('light')">Light</button>
+        </div>
       </div>
     </header>
 
@@ -1180,41 +1491,24 @@
     <section id="brief" class="section active" aria-labelledby="brief-title">
       <div class="section-title" style="margin-top: 18px;">
         <div>
-          <p class="eyebrow">High-impact operator mode</p>
-          <h2 id="brief-title">Send the best posts, then leave.</h2>
-          <p>Pre-populated opportunities are sorted into account cards. Make short edits only when needed, mark sent or send later, and move on.</p>
+          <p class="eyebrow">Daily Briefing</p>
+          <h2 id="brief-title">What should we post today?</h2>
+          <p>Scan opportunities. Send the best. Leave.</p>
         </div>
       </div>
 
-      <div class="command-strip" id="commandStrip"></div>
+      <div id="todayStats" class="command-strip"></div>
 
-      <div class="operator-layout">
-        <div class="operator-grid" id="operatorCards"></div>
-        <aside class="panel quiet-panel">
-          <h3>Suggestions</h3>
-          <div class="suggestion-list" id="suggestionsPanel"></div>
-        </aside>
+      <div id="notificationPanel" class="notification-panel" style="display:none;"></div>
+
+      <div id="hotAlerts"></div>
+
+      <div class="daily-briefing" id="dailyBriefing">
+        <!-- populated by JS: highlights + suggestions per persona -->
       </div>
 
-      <div class="insight-grid" id="trendHighlights"></div>
-
-      <!-- PART1: Today's Work structured sections in Operator home -->
-      <div id="todaysWork" style="margin-top:20px;">
-        <h3>🔥 Needs Immediate Attention</h3>
-        <div id="needsImmediate" class="panel list"></div>
-
-        <h3>Draft Review</h3>
-        <div id="draftReviewMain" class="grid"></div>
-
-        <h3>Performance Pending</h3>
-        <div id="performancePending" class="panel list"></div>
-
-        <h3>Completed Today</h3>
-        <div id="completedToday" class="panel list"></div>
-      </div>
-
-      <details class="admin-drawer">
-        <summary>Advanced signal view</summary>
+      <details class="admin-drawer" style="margin-top: 24px;">
+        <summary>Advanced / Reference</summary>
         <div class="section-title">
           <div>
             <h2>Highlights</h2>
@@ -1459,6 +1753,7 @@
     let hermesMorningDigestLatest = null;
     let velocityAlerts = [];
     let operatorQueue = null;
+    let queueFocusDraftId = null;
     let publishedPosts = [];
     let backendUnavailable = false;
     let setupStatus = { backendReachable: false, personasInitialized: false, personaCount: 0 };
@@ -1510,7 +1805,7 @@
     }
 
     function queryProviderOptions(selected) {
-      return ["news", "rss"].map((provider) => (
+      return ["news", "rss", "crawl4ai"].map((provider) => (
         `<option value="${provider}" ${provider === selected ? "selected" : ""}>${provider}</option>`
       )).join("");
     }
@@ -1570,6 +1865,7 @@
               <select id="setup-provider-${index}" aria-label="${draft.label} provider">
                 <option value="news" ${draft.provider === "news" ? "selected" : ""}>news</option>
                 <option value="rss" ${draft.provider === "rss" ? "selected" : ""}>rss</option>
+                <option value="crawl4ai" ${draft.provider === "crawl4ai" ? "selected" : ""}>crawl4ai</option>
               </select>
               <input id="setup-weight-${index}" type="number" min="1" max="5" value="3" aria-label="${draft.label} weight" style="max-width: 90px;">
             </div>
@@ -1740,7 +2036,106 @@
       return "Wait for the next digest or velocity check.";
     }
 
-    function renderCommandStrip() {
+    function providerBadgeHtml(provider) {
+      const icons = { rss: "\uD83D\uDCF0", news: "\uD83C\uDF0D", crawl4ai: "\uD83D\uDD77", hermes: "\uD83E\uDDE0", mock: "\uD83D\uDD2C", x: "\uD835\uDD4F", reddit: "\uD83D\uDCAC" };
+      const icon = icons[String(provider || "").toLowerCase()] || "\uD83D\uDCCD";
+      return `<span class="provider-badge">${icon} ${escapeHtml(provider || "provider")}</span>`;
+    }
+
+    function evidenceCount(signal) {
+      if (!signal) return 0;
+      const urls = signal.evidenceUrls;
+      return Array.isArray(urls) ? urls.length : 0;
+    }
+
+    function chiefExplanationHtml(signal) {
+      if (!signal) return "<span class=\"why-now\">Awaiting signal data.</span>";
+      const reasons = [];
+      if (signal.noveltyScore >= 75) reasons.push("High novelty");
+      if (signal.velocityScore >= 70) reasons.push("Rapid velocity");
+      if (signal.relevanceScore >= 80) reasons.push("Excellent persona fit");
+      if (signal.sourceCount >= 3) reasons.push("Multiple confirming sources");
+      if (signal.freshnessScore >= 75) reasons.push("Strong freshness");
+      if (signal.priorityScore >= 80) reasons.push("High confidence");
+      if (signal.riskScore < 20) reasons.push("Low risk");
+      if (!reasons.length) {
+        if (signal.priorityScore >= 60) reasons.push("Moderate priority");
+        else if (signal.priorityScore >= 40) reasons.push("Routine signal");
+        else reasons.push("Low-priority observation");
+      }
+      return `<span class="why-now"><strong>Why selected:</strong> ${reasons.join(" · ")}.</span>`;
+    }
+
+    function velocityConfidenceHtml(signal) {
+      if (!signal) return "";
+      const sc = Number(signal.sourceCount || 0);
+      const ps = Number(signal.priorityScore || 0);
+      const vs = Number(signal.velocityScore || 0);
+      let level, cls;
+      if (sc >= 3 && ps >= 75 && vs >= 70) { level = "High"; cls = "confidence-high"; }
+      else if (sc <= 1 && ps < 50) { level = "Low"; cls = "confidence-low"; }
+      else { level = "Medium"; cls = "confidence-medium"; }
+      return `<span class="${cls}"><strong>${level}</strong> confidence</span>`;
+    }
+
+    function evidencePreviewHtml(signal) {
+      const urls = Array.isArray(signal?.evidenceUrls) ? signal.evidenceUrls : [];
+      if (!urls.length) return "";
+      const top = urls.slice(0, 3);
+      const items = top.map((url, idx) => {
+        let label = url;
+        try { label = new URL(url).hostname; } catch {}
+        const headline = signal.topic || "";
+        return `<div class="evidence-item"><span class="evidence-source">${escapeHtml(label)}</span><a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(headline)}</a></div>`;
+      });
+      return `<div class="evidence-list">${items.join("")}</div>`;
+    }
+
+    function operatorTimelineHtml(signal, personaId) {
+      if (!signal) return "";
+      const personaDrafts = drafts.filter((d) => d.personaId === personaId);
+      const personaScheduled = scheduleItems.filter((p) => p.personaId === personaId);
+      const personaPublished = publishedPosts.filter((p) => p.personaId === personaId);
+      const steps = [
+        { label: "Hermes", done: signal.generatedBy === "Hermes" || signal.hermesRunType, active: false },
+        { label: "Imported", done: true, active: false },
+        { label: "Velocity", done: velocityAlerts.some((a) => a.signalId === signal.id), active: velocityAlerts.some((a) => a.signalId === signal.id && a.alertLevel !== null) },
+        { label: "Draft", done: personaDrafts.some((d) => (d.sourceSignalIds || []).includes(signal.id)), active: personaDrafts.some((d) => d.status === "needs_review") },
+        { label: "Approved", done: personaDrafts.some((d) => d.status === "approved"), active: false },
+        { label: "Scheduled", done: personaScheduled.some((p) => p.status === "scheduled"), active: false },
+        { label: "Published", done: personaPublished.length > 0, active: false },
+        { label: "Performance", done: personaPublished.some((p) => p.performance?.updatedAt), active: false }
+      ];
+      return `<div class="timeline-compact">${steps.map((step, i) => {
+        const dotCls = step.done ? "dot done" : step.active ? "dot active" : "dot pending";
+        const arrow = i < steps.length - 1 ? `<span class="timeline-arrow">\u25B8</span>` : "";
+        return `<span class="timeline-step"><span class="${dotCls}"></span>${escapeHtml(step.label)}${arrow}</span>`;
+      }).join("")}</div>`;
+    }
+
+    function sourceContextHtml(signal, personaId) {
+      if (!signal) return "";
+      const persona = personas.find((p) => p.id === personaId);
+      const provider = signal.sourceProvider || signal.hermesProvider || "unknown";
+      const source = signal.source || "unknown";
+      const eCount = evidenceCount(signal);
+      const urls = Array.isArray(signal.evidenceUrls) ? signal.evidenceUrls : [];
+      const pubTime = signal.firstSeenAt ? new Date(signal.firstSeenAt).toLocaleString() : "unknown";
+      const query = signal.query || "—";
+      const clusterSize = signal.sourceCount || 1;
+      return `
+        <div class="source-context-grid">
+          <dt>Provider</dt><dd>${providerBadgeHtml(provider)}</dd>
+          <dt>Source</dt><dd>${escapeHtml(source)}</dd>
+          <dt>Evidence</dt><dd>${eCount} URL${eCount !== 1 ? "s" : ""}${urls.length ? evidencePreviewHtml(signal) : ""}</dd>
+          <dt>Published</dt><dd>${escapeHtml(pubTime)}</dd>
+          <dt>Persona</dt><dd>${escapeHtml(persona?.name || personaId)}</dd>
+          <dt>Search term</dt><dd>${escapeHtml(query)}</dd>
+          <dt>Cluster size</dt><dd>${clusterSize} source${clusterSize !== 1 ? "s" : ""}</dd>
+        </div>`;
+    }
+
+    function renderTodayStats() {
       const items = queuePersonaItems();
       const allSignals = items.flatMap((item) => item.signals || []);
       const readyDrafts = items.flatMap((item) => item.drafts || []).filter((draft) => draft.status === "approved");
@@ -1748,18 +2143,21 @@
       const scheduled = items.flatMap((item) => item.scheduledPosts || []).filter((post) => post.status === "scheduled");
       const today = new Date().toISOString().slice(0, 10);
       const publishedToday = publishedPosts.filter((post) => String(post.publishedAt || post.createdAt || "").startsWith(today));
-      const momentum = velocityAlerts[0]?.accelerationScore || Math.max(0, ...allSignals.map((signal) => signal.velocityScore || 0));
       const tiles = [
-        [allSignals.length, "today's best opportunities"],
-        [readyDrafts.length + scheduled.length, "posts ready"],
-        [needsEdit.length, "need brief edit"],
-        [scheduled.length, "scheduled posts"],
-        [publishedToday.length, "published today"],
-        [momentum, "performance / momentum"]
+        [allSignals.length, "Opportunities"],
+        [readyDrafts.length, "Ready posts"],
+        [publishedToday.length, "Sent"],
+        [needsEdit.length, "Needs edit"]
       ];
-      document.getElementById("commandStrip").innerHTML = tiles.map(([value, label]) => `
+      const el = document.getElementById("todayStats");
+      if (el) el.innerHTML = tiles.map(([value, label]) => `
         <div class="command-tile"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
       `).join("");
+    }
+
+    // old command strip kept for other uses if any, but front uses todayStats
+    function renderCommandStrip() {
+      renderTodayStats();
     }
 
     function renderOperatorCards() {
@@ -1779,18 +2177,27 @@
         const draftBArg = jsArg(variants.draftB || "");
         const hasVariantB = Boolean(variants.draftB);
         const variantPreview = hasVariantB ? "Two local drafts are ready. Pick one, tweak once, then move on." : "One recommended draft is ready.";
+        const sigProvider = signal ? (signal.sourceProvider || signal.hermesProvider) : null;
+        const confHtml = signal ? velocityConfidenceHtml(signal) : "";
+        const chiefHtml = signal ? chiefExplanationHtml(signal) : "";
+        const srcCtxId = `srcctx-${CSS.escape(item.persona.id)}`;
         return `
           <article class="operator-card">
             <div>
               <h3>${escapeHtml(item.persona.name)}</h3>
               <div class="account">${escapeHtml(item.persona.handle || item.persona.account || "")}</div>
               <p class="why-now"><strong>Opportunity:</strong> ${escapeHtml(opportunityFor(item))}</p>
-              <p class="why-now"><strong>Why now:</strong> ${escapeHtml(whyNowFor(item))}</p>
+              ${chiefHtml}
               <div class="operator-meta">
+                ${sigProvider ? providerBadgeHtml(sigProvider) : ""}
+                ${confHtml}
                 <span class="pill ${quality.tone}">${escapeHtml(quality.label)}</span>
                 <span class="pill ${scheduled ? "hot" : draft ? "good" : "warn"}">${scheduled ? "ready to mark sent" : draft ? statusLabel(draft.status) : "needs draft"}</span>
                 ${(item.velocityAlerts || []).length ? `<span class="pill hot">velocity ${(item.velocityAlerts[0].accelerationScore || 0)}</span>` : ""}
+                <button class="source-context-toggle" onclick="document.getElementById('${srcCtxId}').classList.toggle('open')" title="Show source context">ⓘ</button>
               </div>
+              <div class="source-context" id="${srcCtxId}">${signal ? sourceContextHtml(signal, item.persona.id) : ""}</div>
+              ${signal ? operatorTimelineHtml(signal, item.persona.id) : ""}
             </div>
             <div class="quick-post">
               <div class="draft-choice">
@@ -1810,6 +2217,7 @@
               <button class="btn secondary" onclick="sendOperatorLaterWithTime('${postRef}', '${item.persona.id}', 30)">+30m</button>
               <button class="btn link" onclick="skipOperatorItem('${postRef}', '${item.persona.id}')">Skip</button>
             </div>
+            <div class="operator-microcopy" style="font-size:11px;color:#888;margin-top:4px;">Manual publishing only — PCC does not post to X.</div>
           </article>
         `;
       }).join("") || `<article class="card"><p class="niche">No personas are ready. Run setup or refresh the backend.</p></article>`;
@@ -1855,12 +2263,33 @@
       const needsAttention = items.find((item) => item.summary?.needsDraft || item.summary?.needsSchedule || item.summary?.needsPerformance) || items[0];
       const staleScheduled = scheduleItems.find((post) => post.status === "scheduled" && new Date(post.scheduledAt || 0).getTime() < Date.now());
       const rising = velocityAlerts[0];
+      const bestSignal = bestNow ? bestSignalFor(bestNow) : null;
+      const bestProvider = bestSignal ? (bestSignal.sourceProvider || bestSignal.hermesProvider || "") : "";
+      const bestFresh = bestSignal ? bestSignal.freshnessScore || 0 : 0;
+      const bestVel = bestSignal ? bestSignal.velocityScore || 0 : 0;
+      const bestRel = bestSignal ? bestSignal.relevanceScore || 0 : 0;
+      const risingSignal = rising ? signals.find((s) => s.id === rising.signalId) : null;
+      const risingProvider = risingSignal ? (risingSignal.sourceProvider || risingSignal.hermesProvider || "") : "";
       const suggestions = [
         ["Best post to send now", bestNow ? `${bestNow.persona.name}: ${opportunityFor(bestNow)}` : "No post ready."],
         ["Account needing attention", needsAttention ? `${needsAttention.persona.name}: ${(needsAttention.recommendedActions || [])[0] || "check queue"}` : "No account needs attention."],
         ["Stale scheduled item", staleScheduled ? `${personaName(staleScheduled.personaId)}: ${staleScheduled.body}` : "No stale scheduled posts."],
         ["Rising velocity idea", rising ? `${rising.personaName || personaName(rising.personaId)}: ${rising.topic}` : "No rising velocity alert."]
       ];
+      if (bestProvider && bestSignal) {
+        const confParts = [];
+        if (bestFresh >= 75) confParts.push("strong freshness");
+        if (bestVel >= 70) confParts.push("rapid velocity");
+        if (bestRel >= 80) confParts.push("excellent persona fit");
+        if (confParts.length) {
+          suggestions[0][1] += ` (${bestProvider} · ${confParts.join(", ")})`;
+        } else {
+          suggestions[0][1] += ` (${bestProvider})`;
+        }
+      }
+      if (risingProvider && risingSignal) {
+        suggestions[3][1] += ` (${risingProvider} · velocity ${risingSignal.velocityScore || 0})`;
+      }
       panel.innerHTML = suggestions.map(([title, detail]) => `
         <div class="suggestion"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></div>
       `).join("");
@@ -1868,13 +2297,84 @@
 
     function renderOperatorDashboard() {
       renderCommandStrip();
-      renderOperatorCards();
-      renderTrendHighlights();
-      renderSuggestionsPanel();
-      // PART5/9: focus attention on pending work
-      renderPriorityQueues();
-      renderTodaysWork();
+      renderHotAlerts();
+      renderDailyBriefing();
+      // keep old for compatibility in other views if needed, but front page simplified
     }
+
+    function renderHotAlerts() {
+      const el = document.getElementById("hotAlerts");
+      if (!el) return;
+      const items = queuePersonaItems();
+      const hot = [];
+      items.forEach(item => {
+        (item.velocityAlerts || []).forEach(a => {
+          if (a.alertLevel === 'viral_window' || (a.alertLevel === 'rising' && (a.accelerationScore || 0) > 80)) {
+            hot.push(`${item.persona.name}: ${a.topic || a.recommendedAction || 'Hot opportunity'} (${a.alertLevel})`);
+          }
+        });
+      });
+      el.innerHTML = hot.length ? `<div class="panel" style="padding:6px 10px;margin:8px 0;border-left:3px solid #f00;"><strong>🔥 Hot Alerts</strong><br>${hot.map(h => escapeHtml(h)).join('<br>')}</div>` : `<div class="panel" style="padding:6px 10px;margin:8px 0;opacity:0.7;">No urgent opportunities.</div>`;
+    }
+
+    function renderDailyBriefing() {
+      const container = document.getElementById("dailyBriefing");
+      if (!container) return;
+      const items = queuePersonaItems();
+      let html = '';
+      items.forEach(item => {
+        const p = item.persona;
+        // Highlights: top 3 from velocity or signals
+        const highs = (item.velocityAlerts || []).slice(0,3);
+        let hhtml = '';
+        if (highs.length) {
+          highs.forEach(a => {
+            const conf = a.alertLevel === 'viral_window' ? 'High' : 'Medium';
+            hhtml += `<div class="highlight"><strong>${escapeHtml(a.topic || a.recommendedAction || 'Opportunity')}</strong><div class="why">${escapeHtml(a.explanation || 'Why now: strong signal')} · ${conf} · ${escapeHtml(a.alertLevel || '')}</div></div>`;
+          });
+        } else {
+          // fallback to top signals
+          const sigs = (item.signals || []).slice(0,3);
+          sigs.forEach(s => hhtml += `<div class="highlight"><strong>${escapeHtml(s.topic)}</strong><div class="why">Priority ${s.priorityScore || 0} · freshness ${s.freshnessScore || 0}</div></div>`);
+        }
+        // Suggested posts: from drafts or best text, up to 3
+        const suggs = (item.drafts || []).slice(0,3);
+        let shtml = '';
+        suggs.forEach(d => {
+          const txt = (d.editedBody || d.body || '').slice(0,140);
+          const len = (d.editedBody || d.body || '').length;
+          shtml += `<div class="suggested-post">
+            <div class="post-text">${escapeHtml(txt)}${len>140?'…':''}</div>
+            <div class="meta">${len} chars · ${escapeHtml(d.status)}</div>
+            <div class="actions">
+              <button class="btn" onclick="quickSendDraft('${d.id}', '${p.id}')">Send</button>
+              <button class="btn secondary" onclick="quickEditDraft('${d.id}')">Edit</button>
+              <button class="btn link" onclick="quickLaterDraft('${d.id}', '${p.id}')">Later</button>
+              <button class="btn link" onclick="quickSkipDraft('${d.id}')">Skip</button>
+            </div>
+          </div>`;
+        });
+        if (!shtml) {
+          // fallback to recommended text
+          const txt = recommendedTextFor(item).slice(0,140);
+          shtml = `<div class="suggested-post"><div class="post-text">${escapeHtml(txt)}</div><div class="actions"><button class="btn" onclick="markOperatorSent('signal:${bestSignalFor(item)?.id||''}', '${p.id}')">Send</button><button class="btn secondary" onclick="sendOperatorLater('signal:${bestSignalFor(item)?.id||''}', '${p.id}')">Later</button><button class="btn link" onclick="skipOperatorItem('signal:${bestSignalFor(item)?.id||''}', '${p.id}')">Skip</button></div></div>`;
+        }
+        html += `<div class="persona-block">
+          <h4>${escapeHtml(p.name)} <span style="font-size:10px;color:#888;">${escapeHtml(p.handle||'')}</span></h4>
+          <div style="display:flex;gap:12px;">
+            <div style="flex:1;"><strong>Highlights</strong>${hhtml}</div>
+            <div style="flex:1;"><strong>Suggested Posts</strong>${shtml}</div>
+          </div>
+        </div>`;
+      });
+      container.innerHTML = html || '<div>No personas ready.</div>';
+    }
+
+    // Quick action helpers for front page (reuse existing logic)
+    function quickSendDraft(draftId, personaId) { markOperatorSent('draft:'+draftId, personaId); }
+    function quickEditDraft(draftId) { openQueueForDraft(draftId); }
+    function quickLaterDraft(draftId, personaId) { sendOperatorLater('draft:'+draftId, personaId); }
+    function quickSkipDraft(draftId) { const r = drafts.find(d=>d.id===draftId); skipOperatorItem('draft:'+draftId, r?.personaId || ''); }
 
     function renderTodaysWork() {
       const items = queuePersonaItems();
@@ -2039,6 +2539,167 @@
       `;
     }
 
+    function renderPersonaSectionInterests(persona) {
+      let html = `<div class="persona-section interests-section">
+        <div class="persona-section-header">
+          <h4>Interests</h4>
+          <button class="add-interest-btn" data-persona-id="${persona.id}">+ Add</button>
+        </div>
+        <div class="interests-chips" data-persona-id="${persona.id}">`;
+      if (persona.interests && persona.interests.length) {
+        persona.interests.forEach(int => {
+          html += `<span class="interest-chip" data-id="${int.id}">
+            ${escapeHtml(int.label)}
+            <button class="interest-chip-remove" data-id="${int.id}" data-persona-id="${persona.id}" title="Remove">&times;</button>
+          </span>`;
+        });
+      }
+      html += `</div></div>`;
+      return html;
+    }
+
+    function voiceControlOptions(selected) {
+      return ["low", "medium", "high"].map((level) => (
+        `<option value="${level}" ${level === selected ? "selected" : ""}>${level}</option>`
+      )).join("");
+    }
+
+    function renderPersonaVoiceControls(persona, controls, disabled) {
+      const personaIdArg = jsArg(persona.id);
+      const items = [
+        ["humorLevel", "Humor"],
+        ["contrarianLevel", "Contrarian"],
+        ["explainerLevel", "Explainer"],
+        ["punchinessLevel", "Punchy"],
+        ["memeLevel", "Meme-native"],
+        ["technicalDepth", "Technical"],
+        ["emotionalIntensity", "Emotion"],
+        ["riskTolerance", "Risk"],
+        ["formalityLevel", "Formal"]
+      ];
+      return `
+        <div class="persona-section voice-controls-section">
+          <div class="persona-section-header">
+            <h4>Voice Tuning</h4>
+          </div>
+          <div class="search-term-edit-list">
+            ${items.map(([key, label]) => `
+              <label class="search-term-meta-row">
+                ${escapeHtml(label)}
+                <select class="search-term-small-control" id="voice-control-${escapeHtml(persona.id)}-${key}" ${disabled} onchange="markPersonaDirty(${personaIdArg})">
+                  ${voiceControlOptions((controls && controls[key]) || "medium")}
+                </select>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function normalizeXHandle(val) {
+      if (!val || !val.trim()) return '';
+      let h = val.trim();
+      if (h.startsWith('@')) return h;
+      return '@' + h;
+    }
+
+    function renderPersonaSectionWatchList(persona) {
+      let html = `<div class="persona-section watch-list-section">
+        <div class="persona-section-header">
+          <h4>Watch List</h4>
+          <button class="add-entity-btn" data-persona-id="${persona.id}">+ Add</button>
+        </div>
+        <div class="watch-list" data-persona-id="${persona.id}">`;
+      if (persona.trackedEntities && persona.trackedEntities.length) {
+        persona.trackedEntities.forEach(sub => {
+          const xHandle = sub.primary_x_handle || '';
+          html += `<div class="watch-list-item" data-id="${sub.id}">
+            <span class="watch-list-name">${escapeHtml(sub.entity_name)}</span>
+            ${xHandle ? `<span class="watch-list-handle">${escapeHtml(xHandle)}</span>` : ''}
+            <button class="watch-list-remove" data-id="${sub.id}" data-persona-id="${persona.id}" title="Remove">&times;</button>
+          </div>`;
+        });
+      }
+      html += `</div>
+        <div class="watch-add-form" id="watch-add-form-${persona.id}" style="display:none">
+          <label class="watch-add-row">
+            Name <input type="text" id="watch-add-name-${persona.id}" placeholder="Andrej Karpathy" required>
+          </label>
+          <label class="watch-add-row">
+            X handle <input type="text" id="watch-add-handle-${persona.id}" placeholder="@karpathy (optional)">
+          </label>
+          <div class="watch-add-actions">
+            <button class="watch-add-save btn secondary" data-persona-id="${persona.id}">Save</button>
+            <button class="watch-add-cancel btn link" data-persona-id="${persona.id}">Cancel</button>
+          </div>
+          <p class="watch-add-error" id="watch-add-error-${persona.id}" style="display:none;color:#ff4444;font-size:12px;margin:4px 0 0 0"></p>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    function renderPersonaSectionAdvanced(persona) {
+      const rssTopicsHtml = renderPersonaSectionTopicMonitoring(persona);
+      const sourcesHtml = renderPersonaSectionAuthoritativeSources(persona);
+      return `<div class="persona-section advanced-section">
+        <div class="persona-section-header advanced-toggle" onclick="toggleAdvanced(this)">
+          <h4>Advanced</h4>
+          <span class="advanced-arrow">&#9654;</span>
+        </div>
+        <div class="advanced-body" style="display:none">
+          ${rssTopicsHtml}
+          ${sourcesHtml}
+        </div>
+      </div>`;
+    }
+
+    function renderPersonaSectionTopicMonitoring(persona) {
+      let html = `<div class="persona-section topic-monitoring-section">
+        <div class="persona-section-header">
+          <h4>Topic Monitoring</h4>
+          <button class="add-topic-btn" data-persona-id="${persona.id}">+ Add</button>
+        </div>
+        <div class="topic-list" data-persona-id="${persona.id}">`;
+      if (persona.rssTopics && persona.rssTopics.length) {
+        persona.rssTopics.forEach(topic => {
+          html += `<div class="topic-item" data-id="${topic.id}">
+            <span class="topic-label">${escapeHtml(topic.topic)}</span>
+            <button class="topic-remove" data-id="${topic.id}" data-persona-id="${persona.id}" title="Remove">&times;</button>
+          </div>`;
+        });
+      }
+      html += `</div></div>`;
+      return html;
+    }
+
+    function renderPersonaSectionAuthoritativeSources(persona) {
+      let html = `<div class="persona-section authoritative-sources-section">
+        <div class="persona-section-header">
+          <h4>Authoritative Sources</h4>
+          <button class="add-source-btn" data-persona-id="${persona.id}">+ Add</button>
+        </div>
+        <div class="sources-list" data-persona-id="${persona.id}">`;
+      if (persona.crawlTargets && persona.crawlTargets.length) {
+        persona.crawlTargets.forEach(ct => {
+          html += `<div class="source-item" data-id="${ct.id}">
+            <span class="source-label">${escapeHtml(ct.label || ct.url)}</span>
+            <button class="source-remove" data-id="${ct.id}" data-persona-id="${persona.id}" title="Remove">&times;</button>
+          </div>`;
+        });
+      }
+      html += `</div></div>`;
+      return html;
+    }
+
+    window.toggleAdvanced = function(el) {
+      const body = el.parentElement.querySelector('.advanced-body');
+      const arrow = el.querySelector('.advanced-arrow');
+      if (!body) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      arrow.innerHTML = isOpen ? '&#9654;' : '&#9660;';
+    };
+
     function renderTopSignals() {
       const container = document.getElementById("topSignals");
       if (!container) return;
@@ -2075,6 +2736,7 @@
           handle: persona.handle || persona.account,
           niche: persona.niche,
           voiceTone: persona.voiceTone,
+          voiceControls: persona.voiceControls || {},
           platformStatus: persona.platformStatus,
           queries: clonePersonaQueries(persona)
         };
@@ -2082,8 +2744,8 @@
         <article class="card">
           <div class="card-header">
             <div>
-              <h3>${escapeHtml(persona.name)}</h3>
-              <div class="account">${escapeHtml(persona.account || persona.handle)}</div>
+              <h3>${escapeHtml(editing && draft.name ? draft.name : persona.name)}</h3>
+              <div class="account">${escapeHtml(editing && draft.handle ? draft.handle : (persona.account || persona.handle))}</div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;">
               <span class="platform-pill">${escapeHtml(platformStatusLabel(persona.platformStatus))}</span>
@@ -2100,13 +2762,10 @@
               <input id="handle-${escapeHtml(persona.id)}" value="${escapeHtml(draft.handle || "")}" ${disabled} oninput="markPersonaDirty(${personaIdArg})">
             </label>
             <label>
-              Interest
-              <textarea id="niche-${escapeHtml(persona.id)}" ${disabled} oninput="markPersonaDirty(${personaIdArg})" aria-label="${escapeHtml(persona.name)} interest">${escapeHtml(draft.niche || "")}</textarea>
-            </label>
-            <label>
               Voice
               <textarea id="voice-${escapeHtml(persona.id)}" ${disabled} oninput="markPersonaDirty(${personaIdArg})" aria-label="${escapeHtml(persona.name)} voice">${escapeHtml(draft.voiceTone || "")}</textarea>
             </label>
+            ${renderPersonaVoiceControls(persona, draft.voiceControls || persona.voiceControls || {}, disabled)}
             <label>
               Automation Status
               <select id="platform-${escapeHtml(persona.id)}" ${disabled} onchange="markPersonaDirty(${personaIdArg})">
@@ -2114,13 +2773,9 @@
               </select>
               <span class="field-help">Active personas are included in Hermes ingestion. Draft or disconnected personas are skipped.</span>
             </label>
-            <section class="search-term-section" aria-label="${escapeHtml(persona.name)} search terms">
-              <div class="field-label">
-                Search Terms
-                ${editing ? renderSearchTermsEdit(persona.id, draft.queries || []) : renderSearchTermsDisplay(queries)}
-              </div>
-              ${editing ? `<button type="button" class="btn link" onclick="addPersonaQueryDraft(${personaIdArg})">Add search term</button>` : ""}
-            </section>
+            ${renderPersonaSectionInterests(persona)}
+            ${renderPersonaSectionWatchList(persona)}
+            ${renderPersonaSectionAdvanced(persona)}
             <div class="button-row">
               ${editing
                 ? `<button type="button" class="btn secondary" onclick="savePersona(${personaIdArg})">Save</button><button type="button" class="btn link" onclick="cancelPersonaEdit(${personaIdArg})">Cancel</button>`
@@ -2176,8 +2831,15 @@
         return;
       }
 
-      container.innerHTML = drafts.slice(0, 8).map((draft) => `
-        <article class="card">
+      const visibleDrafts = selectQueueDrafts(drafts, { focusDraftId: queueFocusDraftId });
+
+      if (!visibleDrafts.length) {
+        container.innerHTML = `<article class="card"><p class="niche">No drafts are ready for review.</p></article>`;
+        return;
+      }
+
+      container.innerHTML = visibleDrafts.map((draft) => `
+        <article class="card ${draft.id === queueFocusDraftId ? "draft-focused" : ""}" data-draft-id="${escapeHtml(draft.id)}">
           <div class="card-header">
             <div>
               <h3>${escapeHtml(personaName(draft.personaId))}</h3>
@@ -2185,6 +2847,7 @@
             </div>
           </div>
           <textarea id="draft-${draft.id}" aria-label="Draft body">${escapeHtml(draft.editedBody || draft.body)}</textarea>
+          ${draftEditorialDetailsHtml(draft)}
           <div class="button-row" style="margin-top: 14px;">
             <button class="btn secondary" onclick="saveDraft('${draft.id}')">Save edit</button>
             <button class="btn secondary" onclick="approveWithReason('${draft.id}', 'High confidence')">Approve (High confidence)</button>
@@ -2195,6 +2858,65 @@
           </div>
         </article>
       `).join("");
+    }
+
+    function selectQueueDrafts(allDrafts, { focusDraftId = null } = {}) {
+      const reviewReadyStatuses = new Set(["needs_review", "approved", "scheduled"]);
+      const eligible = (allDrafts || []).filter((draft) => reviewReadyStatuses.has(draft.status) && draft.qualityChecks?.passed !== false);
+      const personaOrder = personas.length
+        ? personas.map((persona) => persona.id)
+        : [...new Set(eligible.map((draft) => draft.personaId).filter(Boolean))];
+      const knownPersonaIds = new Set(personaOrder);
+      for (const draft of eligible) {
+        if (draft.personaId && !knownPersonaIds.has(draft.personaId)) {
+          personaOrder.push(draft.personaId);
+          knownPersonaIds.add(draft.personaId);
+        }
+      }
+      const priorityFor = (draft) => {
+        const quality = draft.qualityChecks || {};
+        return Number(draft.priorityScore ?? draft.priority ?? quality.priorityScore ?? quality.score ?? 0);
+      };
+      const dateFor = (draft) => Date.parse(draft.updatedAt || draft.createdAt || "") || 0;
+      const sortedForPersona = (personaId) => eligible
+        .filter((draft) => draft.personaId === personaId)
+        .sort((a, b) => priorityFor(b) - priorityFor(a) || dateFor(b) - dateFor(a));
+      const selected = personaOrder.flatMap((personaId) => sortedForPersona(personaId).slice(0, 3));
+      const selectedIds = new Set(selected.map((draft) => draft.id));
+      const focusDraft = focusDraftId
+        ? eligible.find((draft) => draft.id === focusDraftId)
+        : null;
+      if (focusDraft && !selectedIds.has(focusDraft.id)) {
+        return [focusDraft, ...selected];
+      }
+      if (focusDraft) {
+        return [...selected].sort((a, b) => {
+          if (a.id === focusDraft.id) return -1;
+          if (b.id === focusDraft.id) return 1;
+          return 0;
+        });
+      }
+      return selected.slice(0, 12);
+    }
+
+    function draftEditorialDetailsHtml(draft) {
+      const meta = draft.editorialMetadata || {};
+      const warnings = draft.qualityChecks?.warnings || meta.qualityWarnings || [];
+      const why = meta.whyPeopleCare || meta.conversationContext || "";
+      const angle = meta.surprisingAngle || meta.personaEntryPoint || meta.draftStrategy || "";
+      const tension = meta.tensionOrContradiction || "";
+      if (!why && !angle && !tension && !warnings.length) return "";
+      return `
+        <details class="source-context" style="display:block;margin-top:10px;">
+          <summary>Why this works</summary>
+          <div class="source-context-grid" style="margin-top:8px;">
+            ${why ? `<dt>Why</dt><dd>${escapeHtml(why)}</dd>` : ""}
+            ${angle ? `<dt>Angle</dt><dd>${escapeHtml(angle)}</dd>` : ""}
+            ${tension ? `<dt>Tension</dt><dd>${escapeHtml(tension)}</dd>` : ""}
+            ${warnings.length ? `<dt>Warnings</dt><dd>${warnings.map(escapeHtml).join(" · ")}</dd>` : ""}
+          </div>
+        </details>
+      `;
     }
 
     function renderIngestionRuns() {
@@ -2689,9 +3411,23 @@
     }
 
     function reviewDrafts(personaId) {
+      const draft = drafts.find((item) => item.personaId === personaId && ["needs_review", "approved", "scheduled"].includes(item.status));
+      openQueueForDraft(draft ? draft.id : null);
+    }
+
+    function openQueueForDraft(draftId) {
+      queueFocusDraftId = draftId || null;
       showSection("schedule");
-      drafts = drafts.filter((draft) => !personaId || draft.personaId === personaId).concat(drafts.filter((draft) => personaId && draft.personaId !== personaId));
       renderDraftReview();
+      if (!draftId) return;
+      window.requestAnimationFrame(() => {
+        const textarea = document.getElementById(`draft-${CSS.escape(draftId)}`);
+        const card = document.querySelector(`[data-draft-id="${CSS.escape(draftId)}"]`);
+        const target = textarea || card;
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (textarea) textarea.focus();
+      });
     }
 
     async function generateDraftsFromSignal(personaId, signalId) {
@@ -2795,8 +3531,26 @@
       return { type, id };
     }
 
+    function draftTextForRef(ref, personaId) {
+      const { type, id } = parseOperatorRef(ref);
+      if (type === "scheduled") {
+        const scheduled = scheduleItems.find((item) => item.id === id);
+        if (scheduled?.body) return scheduled.body;
+      }
+      if (type === "draft") {
+        const draft = drafts.find((item) => item.id === id);
+        if (draft?.editedBody || draft?.body) return draft.editedBody || draft.body;
+      }
+      const item = operatorItemForPersona(personaId);
+      return item ? recommendedTextFor(item) : "";
+    }
+
     function quickText(personaId) {
       return document.getElementById(`quick-${personaId}`)?.value || "";
+    }
+
+    function operatorActionText(personaId, ref = "") {
+      return quickText(personaId) || draftTextForRef(ref, personaId);
     }
 
     function getQuickReason(type = "review", quickList = []) {
@@ -2834,12 +3588,13 @@
       return queuePersonaItems().find((item) => item.persona.id === personaId) || null;
     }
 
-    async function recordOperatorDraftChoice(personaId, outcome) {
+    async function recordOperatorDraftChoice(personaId, outcome, ref = "") {
       const item = operatorItemForPersona(personaId);
       if (!item) return null;
       const variants = draftVariantsFor(item);
       const selectedVariant = selectedVariantFor(personaId);
       const sourceSignalIds = sourceSignalIdsForChoice(item, variants);
+      const finalText = operatorActionText(personaId, ref) || variants.draftA || recommendedTextFor(item);
       return apiFetch("/api/operator/draft-choices", {
         method: "POST",
         body: JSON.stringify({
@@ -2849,7 +3604,7 @@
           draftA: variants.draftA || recommendedTextFor(item),
           draftB: variants.draftB || null,
           selectedVariant,
-          editedFinalText: quickText(personaId),
+          editedFinalText: finalText,
           choiceReason: selectedVariant === "neither" ? "Operator chose neither variant." : "Operator chose a local draft variant.",
           outcome
         })
@@ -2858,20 +3613,19 @@
 
     async function updateOperatorChoiceOutcome(choice, payload) {
       if (!choice?.id) return null;
+      const editedFinalText = quickText(choice.personaId);
+      if (editedFinalText) payload.editedFinalText = editedFinalText;
       return apiFetch(`/api/operator/draft-choices/${choice.id}/outcome`, {
         method: "PATCH",
-        body: JSON.stringify({
-          editedFinalText: quickText(choice.personaId),
-          ...payload
-        })
+        body: JSON.stringify(payload)
       });
     }
 
     async function markOperatorSent(ref, personaId) {
       const { type, id } = parseOperatorRef(ref);
-      const body = quickText(personaId);
+      const body = operatorActionText(personaId, ref);
       try {
-        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        const choice = await recordOperatorDraftChoice(personaId, "recorded", ref);
         let published = null;
         let scheduled = null;
         if (type === "scheduled") {
@@ -2926,9 +3680,9 @@
 
     async function sendOperatorLater(ref, personaId) {
       const { type, id } = parseOperatorRef(ref);
-      const body = quickText(personaId);
+      const body = operatorActionText(personaId, ref);
       try {
-        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        const choice = await recordOperatorDraftChoice(personaId, "recorded", ref);
         let scheduled = null;
         if (type === "scheduled") {
           showToast("Already scheduled.");
@@ -2970,10 +3724,10 @@
 
     async function sendOperatorLaterWithTime(ref, personaId, minutes) {
       const { type, id } = parseOperatorRef(ref);
-      const body = quickText(personaId);
+      const body = operatorActionText(personaId, ref);
       const scheduledAt = new Date(Date.now() + minutes * 60000).toISOString();
       try {
-        const choice = await recordOperatorDraftChoice(personaId, "recorded");
+        const choice = await recordOperatorDraftChoice(personaId, "recorded", ref);
         let scheduled = null;
         if (type === "draft") {
           await apiFetch(`/api/drafts/${id}`, { method: "PATCH", body: JSON.stringify({ editedBody: body }) });
@@ -2994,7 +3748,6 @@
     async function skipOperatorItem(ref, personaId) {
       const { type, id } = parseOperatorRef(ref);
       try {
-        const choice = await recordOperatorDraftChoice(personaId, "recorded");
         if (type === "scheduled") {
           await apiFetch(`/api/schedule/${id}/cancel`, { method: "POST", body: "{}" });
         } else if (type === "draft") {
@@ -3005,7 +3758,7 @@
           showToast("Nothing to skip.");
           return;
         }
-        await updateOperatorChoiceOutcome(choice, { outcome: "skipped" });
+        const choice = await recordOperatorDraftChoice(personaId, "skipped", ref);
         await loadBackendData();
         showToast("Skipped.");
       } catch (error) {
@@ -3055,6 +3808,7 @@
           handle: persona?.handle || persona?.account || "",
           niche: persona?.niche || "",
           voiceTone: persona?.voiceTone || "",
+          voiceControls: persona?.voiceControls || {},
           platformStatus: normalizedPlatformStatus(persona?.platformStatus),
           queries: clonePersonaQueries(persona)
         }
@@ -3075,14 +3829,27 @@
     }
 
     function readPersonaDraft(personaId) {
+      const persona = personas.find((item) => item.id === personaId);
+      const nicheInput = document.getElementById(`niche-${personaId}`);
       return {
         name: document.getElementById(`name-${personaId}`)?.value || "",
         handle: document.getElementById(`handle-${personaId}`)?.value || "",
-        niche: document.getElementById(`niche-${personaId}`)?.value || "",
+        niche: nicheInput ? nicheInput.value : (persona?.niche || ""),
         voiceTone: document.getElementById(`voice-${personaId}`)?.value || "",
+        voiceControls: readPersonaVoiceControls(personaId),
         platformStatus: document.getElementById(`platform-${personaId}`)?.value || "active",
         queries: readPersonaQueryDrafts(personaId)
       };
+    }
+
+    function readPersonaVoiceControls(personaId) {
+      const keys = ["humorLevel", "contrarianLevel", "explainerLevel", "punchinessLevel", "memeLevel", "technicalDepth", "emotionalIntensity", "riskTolerance", "formalityLevel"];
+      const persona = personas.find((item) => item.id === personaId);
+      const values = { ...(persona?.voiceControls || {}) };
+      keys.forEach((key) => {
+        values[key] = document.getElementById(`voice-control-${personaId}-${key}`)?.value || values[key] || "medium";
+      });
+      return values;
     }
 
     function readPersonaQueryDrafts(personaId) {
@@ -3186,6 +3953,7 @@
         handle: payload.handle,
         niche: payload.niche,
         voiceTone: payload.voiceTone,
+        voiceControls: payload.voiceControls,
         platformStatus: payload.platformStatus
       };
       const saveUrl = personaApiPath(personaId);
@@ -3280,6 +4048,48 @@
       });
     }
 
+    async function pollNotifications() {
+      try {
+        const { count } = await apiFetch("/api/notifications/unread-count");
+        const badge = document.getElementById("notificationBadge");
+        if (badge) {
+          if (count > 0) {
+            badge.textContent = count > 99 ? "99+" : String(count);
+            badge.style.display = "";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+      } catch (_) { /* ignore polling errors */ }
+    }
+
+    async function toggleNotifications() {
+      const panel = document.getElementById("notificationPanel");
+      if (!panel) return;
+      if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+      try {
+        const notifs = await apiFetch("/api/notifications?unreadOnly=true&limit=20");
+        if (!notifs.length) {
+          panel.innerHTML = '<div class="panel" style="padding:8px;margin:4px 0;opacity:0.7;">No unread notifications.</div>';
+        } else {
+          panel.innerHTML = '<div class="panel" style="padding:8px;margin:4px 0;">' + notifs.map((n) => {
+            const label = n.personaName ? `🔥 ${escapeHtml(n.personaName)}: ${escapeHtml(n.topic || "")}` : `🔥 ${escapeHtml(n.topic || "")}`;
+            return `<div style="padding:4px 0;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
+              <span>${label}</span>
+              <button class="btn link" onclick="dismissNotification('${n.id}')" style="font-size:11px;">Dismiss</button>
+            </div>`;
+          }).join('') + '</div>';
+        }
+        panel.style.display = "";
+      } catch (_) { panel.innerHTML = '<div class="panel" style="padding:8px;margin:4px 0;opacity:0.7;">Could not load notifications.</div>'; panel.style.display = ""; }
+    }
+
+    async function dismissNotification(id) {
+      try { await apiFetch("/api/notifications/" + id + "/read", { method: "POST", body: "{}" }); } catch (_) {}
+      pollNotifications();
+      toggleNotifications();
+    }
+
     function verifyFrontend() {
       const results = [];
       const brandH1 = document.querySelector(".brand h1");
@@ -3321,6 +4131,7 @@
           handle: original.handle,
           niche: original.niche,
           voiceTone: original.voiceTone,
+          voiceControls: original.voiceControls || {},
           platformStatus: original.platformStatus || "active"
         })
       });
@@ -3332,6 +4143,7 @@
           handle: original.handle,
           niche: original.niche,
           voiceTone: original.voiceTone,
+          voiceControls: original.voiceControls || {},
           platformStatus: original.platformStatus || "active"
         })
       });
@@ -3388,6 +4200,150 @@
 
     setTheme(getTheme());
     loadBackendData();
+
+    pollNotifications();
+    setInterval(pollNotifications, 30000);
+
+    document.getElementById('personas')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+
+      if (btn.classList.contains('add-interest-btn')) {
+        const personaId = btn.dataset.personaId;
+        const label = prompt('Interest label:');
+        if (!label) return;
+        await fetch(`/api/personas/${personaId}/interests`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ label, weight: 3 }) });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('interest-chip-remove')) {
+        const interestId = btn.dataset.id;
+        const personaId = btn.dataset.personaId;
+        await fetch(`/api/personas/${personaId}/interests/${interestId}`, { method: 'DELETE' });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('add-topic-btn')) {
+        const personaId = btn.dataset.personaId;
+        const topic = prompt('Topic:');
+        if (!topic) return;
+        await fetch(`/api/personas/${personaId}/rss-topics`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topic, provider: 'rss', weight: 1 }) });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('topic-remove')) {
+        const topicId = btn.dataset.id;
+        const personaId = btn.dataset.personaId;
+        await fetch(`/api/personas/${personaId}/rss-topics/${topicId}`, { method: 'DELETE' });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('add-source-btn')) {
+        const personaId = btn.dataset.personaId;
+        const label = prompt('Label:');
+        if (!label) return;
+        const url = prompt('URL:');
+        if (!url) return;
+        await fetch(`/api/personas/${personaId}/crawl-targets`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ label, url, frequency: 'daily' }) });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('source-remove')) {
+        const targetId = btn.dataset.id;
+        const personaId = btn.dataset.personaId;
+        await fetch(`/api/personas/${personaId}/crawl-targets/${targetId}`, { method: 'DELETE' });
+        await loadBackendData();
+      }
+
+      if (btn.classList.contains('add-entity-btn')) {
+        const personaId = btn.dataset.personaId;
+        const form = document.getElementById(`watch-add-form-${personaId}`);
+        const error = document.getElementById(`watch-add-error-${personaId}`);
+        if (form) {
+          form.style.display = 'block';
+          if (error) error.style.display = 'none';
+          document.getElementById(`watch-add-name-${personaId}`)?.focus();
+        }
+        return;
+      }
+
+      if (btn.classList.contains('watch-add-cancel')) {
+        const personaId = btn.dataset.personaId;
+        const form = document.getElementById(`watch-add-form-${personaId}`);
+        if (form) {
+          form.style.display = 'none';
+          document.getElementById(`watch-add-name-${personaId}`).value = '';
+          document.getElementById(`watch-add-handle-${personaId}`).value = '';
+        }
+        return;
+      }
+
+      if (btn.classList.contains('watch-add-save')) {
+        const personaId = btn.dataset.personaId;
+        const nameInput = document.getElementById(`watch-add-name-${personaId}`);
+        const handleInput = document.getElementById(`watch-add-handle-${personaId}`);
+        const error = document.getElementById(`watch-add-error-${personaId}`);
+        const name = (nameInput?.value || '').trim();
+        const rawHandle = (handleInput?.value || '').trim();
+        if (!name && !rawHandle) {
+          if (error) { error.textContent = 'Name or X handle is required.'; error.style.display = 'block'; }
+          return;
+        }
+        const handle = rawHandle ? normalizeXHandle(rawHandle) : '';
+        if (!handle && !name) {
+          if (error) { error.textContent = 'Name is required when no X handle is provided.'; error.style.display = 'block'; }
+          return;
+        }
+        try {
+          if (error) error.style.display = 'none';
+          btn.disabled = true;
+          btn.textContent = 'Saving...';
+          const entities = await (await fetch('/api/entities')).json();
+          let entity = entities.find(e =>
+            e.name?.toLowerCase() === name.toLowerCase() ||
+            (handle && e.primary_x_handle?.toLowerCase() === handle.toLowerCase())
+          );
+          if (!entity && handle) {
+            entity = entities.find(e => e.primary_x_handle?.toLowerCase() === handle.toLowerCase());
+          }
+          if (!entity) {
+            entity = await (await fetch('/api/entities', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, primaryXHandle: handle || null })
+            })).json();
+          }
+          const allPersonas = await (await fetch('/api/personas')).json();
+          const currentPersona = allPersonas.find(p => p.id === personaId);
+          const alreadySubscribed = currentPersona?.trackedEntities?.find(s => s.entity_id === entity.id);
+          if (!alreadySubscribed) {
+            await fetch(`/api/personas/${encodeURIComponent(personaId)}/entities`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ entityId: entity.id, priority: 5 })
+            });
+          }
+          if (nameInput) nameInput.value = '';
+          if (handleInput) handleInput.value = '';
+          const form = document.getElementById(`watch-add-form-${personaId}`);
+          if (form) form.style.display = 'none';
+          await loadBackendData();
+        } catch (err) {
+          if (error) { error.textContent = 'Failed to add: ' + (err.message || 'unknown error'); error.style.display = 'block'; }
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save';
+        }
+        return;
+      }
+
+      if (btn.classList.contains('watch-list-remove')) {
+        const subId = btn.dataset.id;
+        const personaId = btn.dataset.personaId;
+        await fetch(`/api/personas/${personaId}/entities/${subId}`, { method: 'DELETE' });
+        await loadBackendData();
+      }
+    });
   </script>
 </body>
 </html>

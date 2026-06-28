@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS personas (
   handle TEXT NOT NULL,
   niche TEXT NOT NULL,
   voice_tone TEXT NOT NULL,
+  voice_controls TEXT NOT NULL DEFAULT '{}',
   platform_status TEXT NOT NULL DEFAULT 'active',
   user_edited INTEGER NOT NULL DEFAULT 0,
   user_edited_at TEXT,
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS signals (
   dismissal_reason TEXT,
   used_at TEXT,
   suggested_angle TEXT NOT NULL,
+  editorial_metadata TEXT NOT NULL DEFAULT '{}',
   evidence_urls TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
@@ -134,6 +136,7 @@ CREATE TABLE IF NOT EXISTS drafts (
   review_reason TEXT,
   rejection_reason TEXT,
   quality_checks TEXT NOT NULL DEFAULT '{}',
+  editorial_metadata TEXT NOT NULL DEFAULT '{}',
   source_signal_ids TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -235,6 +238,82 @@ CREATE TABLE IF NOT EXISTS hermes_settings (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS persona_interests (
+  id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  label TEXT NOT NULL,
+  weight INTEGER NOT NULL DEFAULT 1,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS persona_interest_deletions (
+  interest_id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  label TEXT,
+  deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tracked_entities (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'person',
+  primary_x_handle TEXT,
+  aliases_json TEXT NOT NULL DEFAULT '[]',
+  github_urls_json TEXT NOT NULL DEFAULT '[]',
+  website_urls_json TEXT NOT NULL DEFAULT '[]',
+  rss_urls_json TEXT NOT NULL DEFAULT '[]',
+  keywords_json TEXT NOT NULL DEFAULT '[]',
+  notes TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS persona_entity_subscriptions (
+  id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 5,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  monitor_x INTEGER NOT NULL DEFAULT 1,
+  monitor_mentions INTEGER NOT NULL DEFAULT 1,
+  monitor_rss INTEGER NOT NULL DEFAULT 1,
+  monitor_crawl4ai INTEGER NOT NULL DEFAULT 1,
+  monitor_searchagent INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+  FOREIGN KEY (entity_id) REFERENCES tracked_entities(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS persona_crawl_targets (
+  id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  label TEXT,
+  url TEXT NOT NULL,
+  notes TEXT,
+  frequency TEXT NOT NULL DEFAULT 'daily',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS persona_rss_topics (
+  id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'rss',
+  weight INTEGER NOT NULL DEFAULT 1,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_persona_queries_persona ON persona_queries(persona_id);
 CREATE INDEX IF NOT EXISTS idx_signals_persona_seen ON signals(persona_id, last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_snapshots_run ON signal_snapshots(ingestion_run_id);
@@ -246,3 +325,11 @@ CREATE INDEX IF NOT EXISTS idx_published_posts_persona ON published_posts(person
 CREATE INDEX IF NOT EXISTS idx_published_posts_schedule ON published_posts(scheduled_post_id);
 CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_persona ON operator_draft_choices(persona_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_signal ON operator_draft_choices(signal_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_persona_interests_persona ON persona_interests(persona_id);
+CREATE INDEX IF NOT EXISTS idx_tracked_entities_type ON tracked_entities(type);
+CREATE INDEX IF NOT EXISTS idx_tracked_entities_name ON tracked_entities(name);
+CREATE INDEX IF NOT EXISTS idx_entity_subs_persona ON persona_entity_subscriptions(persona_id);
+CREATE INDEX IF NOT EXISTS idx_entity_subs_entity ON persona_entity_subscriptions(entity_id);
+CREATE INDEX IF NOT EXISTS idx_crawl_targets_persona ON persona_crawl_targets(persona_id);
+CREATE INDEX IF NOT EXISTS idx_rss_topics_persona ON persona_rss_topics(persona_id);

@@ -89,6 +89,10 @@ export async function initDb() {
   `);
   const existingById = new Map(existingSeedPersonas.map((row) => [row.id, row]));
   await execSql(seed);
+  await execSql(`
+    DELETE FROM persona_interests
+    WHERE id IN (SELECT interest_id FROM persona_interest_deletions);
+  `);
   await Promise.allSettled(seedPersonaIds.map(async (personaId) => {
     const existing = existingById.get(personaId);
     if (existing) {
@@ -153,7 +157,9 @@ async function runMigrations() {
       ["hermes_job_name", "TEXT"],
       ["validation_id", "TEXT"],
       ["review_reason", "TEXT"],
-      ["dismissal_reason", "TEXT"]
+      ["dismissal_reason", "TEXT"],
+      ["test_mode", "INTEGER NOT NULL DEFAULT 0"],
+      ["editorial_metadata", "TEXT NOT NULL DEFAULT '{}'"]
     ]],
     ["ingestion_runs", [
       ["run_type", "TEXT NOT NULL DEFAULT 'mock'"],
@@ -181,9 +187,15 @@ async function runMigrations() {
       ["locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0"]
     ]],
     ["personas", [
+      ["voice_controls", "TEXT NOT NULL DEFAULT '{}'"],
       ["user_edited", "INTEGER NOT NULL DEFAULT 0"],
       ["user_edited_at", "TEXT"],
       ["locked_from_seed_overwrite", "INTEGER NOT NULL DEFAULT 0"]
+    ]],
+    ["persona_interest_deletions", [
+      ["persona_id", "TEXT NOT NULL DEFAULT ''"],
+      ["label", "TEXT"],
+      ["deleted_at", "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"]
     ]],
     ["drafts", [
       ["original_body", "TEXT"],
@@ -195,6 +207,7 @@ async function runMigrations() {
       ["review_reason", "TEXT"],
       ["rejection_reason", "TEXT"],
       ["quality_checks", "TEXT NOT NULL DEFAULT '{}'"],
+      ["editorial_metadata", "TEXT NOT NULL DEFAULT '{}'"],
       ["source_signal_ids", "TEXT NOT NULL DEFAULT '[]'"],
       ["created_at", "TEXT"],
       ["updated_at", "TEXT"]
@@ -291,17 +304,112 @@ async function runMigrations() {
       FOREIGN KEY (published_post_id) REFERENCES published_posts(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      entity_name TEXT,
+      topic TEXT NOT NULL,
+      signal_id TEXT,
+      draft_count INTEGER NOT NULL DEFAULT 1,
+      priority_score INTEGER NOT NULL DEFAULT 0,
+      confidence REAL NOT NULL DEFAULT 0.85,
+      run_type TEXT,
+      is_test INTEGER NOT NULL DEFAULT 0,
+      read_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+      FOREIGN KEY (signal_id) REFERENCES signals(id) ON DELETE SET NULL
+    );
+
     UPDATE drafts SET original_body = body WHERE original_body IS NULL;
     UPDATE drafts SET edited_body = body WHERE edited_body IS NULL;
     UPDATE drafts SET quality_checks = '{}' WHERE quality_checks IS NULL;
+    UPDATE drafts SET editorial_metadata = '{}' WHERE editorial_metadata IS NULL;
+    UPDATE signals SET editorial_metadata = '{}' WHERE editorial_metadata IS NULL;
     UPDATE scheduled_posts SET updated_at = created_at WHERE updated_at IS NULL;
     UPDATE persona_queries SET updated_at = created_at WHERE updated_at IS NULL;
+    UPDATE persona_queries SET provider = 'rss' WHERE provider = 'news' AND source_type = 'public_feed';
     UPDATE personas
     SET platform_status = 'active', updated_at = CURRENT_TIMESTAMP
     WHERE platform_status = 'mock'
       AND COALESCE(user_edited, 0) = 0
       AND COALESCE(locked_from_seed_overwrite, 0) = 0;
     UPDATE platform_accounts SET status = 'configured' WHERE status = 'mock';
+    CREATE TABLE IF NOT EXISTS persona_interests (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      weight INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS persona_interest_deletions (
+      interest_id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      label TEXT,
+      deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS tracked_entities (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'person',
+      primary_x_handle TEXT,
+      aliases_json TEXT NOT NULL DEFAULT '[]',
+      github_urls_json TEXT NOT NULL DEFAULT '[]',
+      website_urls_json TEXT NOT NULL DEFAULT '[]',
+      rss_urls_json TEXT NOT NULL DEFAULT '[]',
+      keywords_json TEXT NOT NULL DEFAULT '[]',
+      notes TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS persona_entity_subscriptions (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      priority INTEGER NOT NULL DEFAULT 5,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      monitor_x INTEGER NOT NULL DEFAULT 1,
+      monitor_mentions INTEGER NOT NULL DEFAULT 1,
+      monitor_rss INTEGER NOT NULL DEFAULT 1,
+      monitor_crawl4ai INTEGER NOT NULL DEFAULT 1,
+      monitor_searchagent INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+      FOREIGN KEY (entity_id) REFERENCES tracked_entities(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS persona_crawl_targets (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      label TEXT,
+      url TEXT NOT NULL,
+      notes TEXT,
+      frequency TEXT NOT NULL DEFAULT 'daily',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS persona_rss_topics (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT 'rss',
+      weight INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+    );
+    INSERT INTO persona_rss_topics (id, persona_id, topic, provider, weight)
+    SELECT id, persona_id, query, provider, weight
+    FROM persona_queries
+    WHERE is_active = 1
+      AND NOT EXISTS (SELECT 1 FROM persona_rss_topics WHERE persona_rss_topics.id = persona_queries.id);
     CREATE INDEX IF NOT EXISTS idx_signals_status ON signals(status, last_seen_at);
     CREATE INDEX IF NOT EXISTS idx_drafts_status ON drafts(status, updated_at);
     CREATE INDEX IF NOT EXISTS idx_signals_priority ON signals(priority_score, last_seen_at);
@@ -313,5 +421,12 @@ async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_published_posts_schedule ON published_posts(scheduled_post_id);
     CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_persona ON operator_draft_choices(persona_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_operator_draft_choices_signal ON operator_draft_choices(signal_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_persona_interests_persona ON persona_interests(persona_id);
+    CREATE INDEX IF NOT EXISTS idx_tracked_entities_type ON tracked_entities(type);
+    CREATE INDEX IF NOT EXISTS idx_tracked_entities_name ON tracked_entities(name);
+    CREATE INDEX IF NOT EXISTS idx_entity_subs_persona ON persona_entity_subscriptions(persona_id);
+    CREATE INDEX IF NOT EXISTS idx_entity_subs_entity ON persona_entity_subscriptions(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_crawl_targets_persona ON persona_crawl_targets(persona_id);
+    CREATE INDEX IF NOT EXISTS idx_rss_topics_persona ON persona_rss_topics(persona_id);
   `);
 }

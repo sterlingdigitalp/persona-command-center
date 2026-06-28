@@ -57,6 +57,7 @@ async function readJson(req) {
 }
 
 function mapPersona(row, queries = []) {
+  const voiceControls = normalizeVoiceControls(parseJsonField(row.voice_controls, null), row.id);
   return {
     id: row.id,
     name: row.name,
@@ -64,12 +65,95 @@ function mapPersona(row, queries = []) {
     account: row.handle,
     niche: row.niche,
     voiceTone: row.voice_tone,
+    voiceControls,
     platformStatus: row.platform_status,
     userEdited: Boolean(row.user_edited),
     userEditedAt: row.user_edited_at,
     lockedFromSeedOverwrite: Boolean(row.locked_from_seed_overwrite),
     queries
   };
+}
+
+const VOICE_CONTROL_KEYS = [
+  "humorLevel",
+  "contrarianLevel",
+  "explainerLevel",
+  "punchinessLevel",
+  "memeLevel",
+  "technicalDepth",
+  "emotionalIntensity",
+  "riskTolerance",
+  "formalityLevel"
+];
+
+const VOICE_LEVELS = new Set(["low", "medium", "high"]);
+
+const DEFAULT_VOICE_CONTROLS = {
+  "the-wonkette": {
+    humorLevel: "medium",
+    contrarianLevel: "medium",
+    explainerLevel: "high",
+    punchinessLevel: "medium",
+    memeLevel: "low",
+    technicalDepth: "high",
+    emotionalIntensity: "low",
+    riskTolerance: "low",
+    formalityLevel: "medium"
+  },
+  "policy-pete": {
+    humorLevel: "low",
+    contrarianLevel: "low",
+    explainerLevel: "high",
+    punchinessLevel: "medium",
+    memeLevel: "low",
+    technicalDepth: "high",
+    emotionalIntensity: "low",
+    riskTolerance: "low",
+    formalityLevel: "high"
+  },
+  "maga-memester": {
+    humorLevel: "high",
+    contrarianLevel: "high",
+    explainerLevel: "low",
+    punchinessLevel: "high",
+    memeLevel: "high",
+    technicalDepth: "low",
+    emotionalIntensity: "medium",
+    riskTolerance: "medium",
+    formalityLevel: "low"
+  },
+  "progressive-pat": {
+    humorLevel: "low",
+    contrarianLevel: "medium",
+    explainerLevel: "medium",
+    punchinessLevel: "medium",
+    memeLevel: "low",
+    technicalDepth: "medium",
+    emotionalIntensity: "high",
+    riskTolerance: "medium",
+    formalityLevel: "medium"
+  }
+};
+
+function normalizeVoiceControls(value = {}, personaId = "") {
+  const defaults = DEFAULT_VOICE_CONTROLS[personaId] || {
+    humorLevel: "medium",
+    contrarianLevel: "medium",
+    explainerLevel: "medium",
+    punchinessLevel: "medium",
+    memeLevel: "low",
+    technicalDepth: "medium",
+    emotionalIntensity: "medium",
+    riskTolerance: "medium",
+    formalityLevel: "medium"
+  };
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = {};
+  for (const key of VOICE_CONTROL_KEYS) {
+    const level = String(source[key] || defaults[key] || "medium").toLowerCase();
+    normalized[key] = VOICE_LEVELS.has(level) ? level : "medium";
+  }
+  return normalized;
 }
 
 function mapPersonaQuery(row) {
@@ -115,14 +199,84 @@ function mapSignal(row) {
     hermesJobName: row.hermes_job_name,
     validationId: row.validation_id,
     status: row.status || "new",
+    testMode: Boolean(row.test_mode),
     reviewedAt: row.reviewed_at,
     reviewReason: row.review_reason,
     dismissedAt: row.dismissed_at,
     dismissalReason: row.dismissal_reason,
     usedAt: row.used_at,
     suggestedAngle: row.suggested_angle,
+    editorialMetadata: parseJsonField(row.editorial_metadata, {}),
     evidenceUrls: parseJsonField(row.evidence_urls, [])
   };
+}
+
+const BANNED_TEMPLATE_PHRASES = [
+  "frame \"",
+  "write a post",
+  "draft a",
+  "template:",
+  "[insert",
+  "{{",
+  "copy goes here"
+];
+
+const OPERATOR_NOISE_PATTERNS = [
+  "mock",
+  "demo",
+  "smoke",
+  "verification",
+  "trial",
+  "validation",
+  "hermes.local",
+  "example",
+  "searchagent unavailable",
+  "new opportunity detected",
+  "crawl4ai mock"
+];
+
+function lowerText(value) {
+  return String(value || "").toLowerCase();
+}
+
+function isProductionNoiseSignal(signal = {}) {
+  const evidenceText = Array.isArray(signal.evidenceUrls)
+    ? signal.evidenceUrls.join(" ")
+    : String(signal.evidenceUrls || "");
+  const haystack = [
+    signal.topic,
+    signal.source,
+    signal.sourceProvider,
+    signal.hermesProvider,
+    signal.hermesModel,
+    signal.hermesEndpoint,
+    signal.hermesJobName,
+    signal.hermesRunType,
+    signal.query,
+    evidenceText
+  ].map(lowerText).join(" ");
+  return signal.testMode === true || OPERATOR_NOISE_PATTERNS.some((pattern) => haystack.includes(pattern));
+}
+
+function productionSignalSqlFilter() {
+  const textColumns = [
+    "LOWER(COALESCE(topic, ''))",
+    "LOWER(COALESCE(source, ''))",
+    "LOWER(COALESCE(source_provider, ''))",
+    "LOWER(COALESCE(hermes_provider, ''))",
+    "LOWER(COALESCE(hermes_model, ''))",
+    "LOWER(COALESCE(hermes_endpoint, ''))",
+    "LOWER(COALESCE(hermes_job_name, ''))",
+    "LOWER(COALESCE(hermes_run_type, ''))",
+    "LOWER(COALESCE(query, ''))",
+    "LOWER(COALESCE(evidence_urls, ''))"
+  ];
+  const clauses = ["(test_mode IS NULL OR test_mode = 0)"];
+  for (const pattern of OPERATOR_NOISE_PATTERNS) {
+    const escaped = pattern.replaceAll("'", "''");
+    clauses.push(`NOT (${textColumns.map((column) => `${column} LIKE '%${escaped}%'`).join(" OR ")})`);
+  }
+  return clauses.join(" AND ");
 }
 
 function evaluateXDraftQuality(body = "") {
@@ -135,6 +289,11 @@ function evaluateXDraftQuality(body = "") {
   if (/https?:\/\/\S+/i.test(text)) warnings.push("Draft contains a link; verify the URL before manual posting.");
   if ((text.match(/#/g) || []).length > 3) warnings.push("Draft uses more than three hashtags.");
   if (/\b(breaking|exclusive|confirmed)\b/i.test(text)) warnings.push("Draft uses a high-claim term; confirm evidence before posting.");
+  for (const phrase of BANNED_TEMPLATE_PHRASES) {
+    if (text.toLowerCase().includes(phrase)) {
+      errors.push(`Draft contains banned template phrase: ${phrase}`);
+    }
+  }
   return {
     platform: "x",
     characterCount: text.length,
@@ -163,6 +322,7 @@ function mapDraft(row) {
     reviewReason: row.review_reason,
     rejectionReason: row.rejection_reason,
     qualityChecks: storedQuality || evaluateXDraftQuality(body),
+    editorialMetadata: parseJsonField(row.editorial_metadata, {}),
     sourceSignalIds: parseJsonField(row.source_signal_ids, []),
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -292,7 +452,7 @@ async function audit(action, entityType, entityId, metadata = {}) {
   `);
 }
 
-async function getPersonas({ includeInactiveQueries = false } = {}) {
+export async function getPersonas({ includeInactiveQueries = false } = {}) {
   const personas = await querySql("SELECT * FROM personas ORDER BY rowid;");
   const queries = await querySql(`
     SELECT *
@@ -300,10 +460,19 @@ async function getPersonas({ includeInactiveQueries = false } = {}) {
     ${includeInactiveQueries ? "" : "WHERE is_active = 1"}
     ORDER BY rowid;
   `);
-  return personas.map((persona) => mapPersona(
-    persona,
-    queries.filter((query) => query.persona_id === persona.id).map(mapPersonaQuery)
-  ));
+  const enriched = [];
+  for (const persona of personas) {
+    const p = mapPersona(
+      persona,
+      queries.filter((query) => query.persona_id === persona.id).map(mapPersonaQuery)
+    );
+    p.interests = await getPersonaInterests(p.id);
+    p.trackedEntities = await getPersonaEntitySubscriptions(p.id);
+    p.crawlTargets = await getPersonaCrawlTargets(p.id);
+    p.rssTopics = await getPersonaRssTopics(p.id);
+    enriched.push(p);
+  }
+  return enriched;
 }
 
 async function getPersonaById(personaId, { includeInactiveQueries = true } = {}) {
@@ -317,7 +486,12 @@ async function getPersonaById(personaId, { includeInactiveQueries = true } = {})
       ${queryWhere}
     ORDER BY rowid;
   `);
-  return mapPersona(personas[0], queries.map(mapPersonaQuery));
+  const persona = mapPersona(personas[0], queries.map(mapPersonaQuery));
+  persona.interests = await getPersonaInterests(persona.id);
+  persona.trackedEntities = await getPersonaEntitySubscriptions(persona.id);
+  persona.crawlTargets = await getPersonaCrawlTargets(persona.id);
+  persona.rssTopics = await getPersonaRssTopics(persona.id);
+  return persona;
 }
 
 async function getPersona(personaId, options = {}) {
@@ -350,6 +524,7 @@ async function getSignals(filters = {}) {
   if (filters.personaId) clauses.push(`persona_id = ${sqlString(filters.personaId)}`);
   if (filters.status) clauses.push(`status = ${sqlString(filters.status)}`);
   if (!filters.includeDismissed) clauses.push("status NOT IN ('dismissed', 'archived')");
+  if (filters.excludeTestMode) clauses.push(productionSignalSqlFilter());
   const sort = filters.sort === "freshness"
     ? "freshness_score DESC, last_seen_at DESC"
     : "priority_score DESC, relevance_score DESC, last_seen_at DESC";
@@ -370,10 +545,235 @@ async function getSignalsForPersona(personaId) {
     FROM signals
     WHERE persona_id = ${sqlString(personaId)}
       AND status NOT IN ('dismissed', 'archived')
+      AND (test_mode IS NULL OR test_mode = 0)
     ORDER BY priority_score DESC, last_seen_at DESC, relevance_score DESC
     LIMIT 30;
   `);
   return rows.map(mapSignal);
+}
+
+async function getPersonaInterests(personaId) {
+  return querySql(`SELECT * FROM persona_interests WHERE persona_id = ${sqlString(personaId)} ORDER BY weight DESC, label ASC;`);
+}
+
+async function getPersonaEntitySubscriptions(personaId) {
+  return querySql(`
+    SELECT pes.*, te.name AS entity_name, te.type AS entity_type, te.primary_x_handle
+    FROM persona_entity_subscriptions pes
+    JOIN tracked_entities te ON te.id = pes.entity_id
+    WHERE pes.persona_id = ${sqlString(personaId)}
+    ORDER BY pes.priority DESC, te.name ASC;
+  `);
+}
+
+async function getPersonaCrawlTargets(personaId) {
+  return querySql(`SELECT * FROM persona_crawl_targets WHERE persona_id = ${sqlString(personaId)} ORDER BY created_at DESC;`);
+}
+
+async function getPersonaRssTopics(personaId) {
+  return querySql(`SELECT * FROM persona_rss_topics WHERE persona_id = ${sqlString(personaId)} ORDER BY weight DESC, topic ASC;`);
+}
+
+// ---- Persona Interests CRUD ----
+export async function createPersonaInterest(personaId, payload) {
+  const id = newId("int");
+  await execSql(`
+    INSERT INTO persona_interests (id, persona_id, label, weight, is_active)
+    VALUES (${sqlString(id)}, ${sqlString(personaId)}, ${sqlString(payload.label)}, ${Number(payload.weight || 1)}, 1);
+  `);
+  await audit("interest.created", "persona_interest", id, { personaId, label: payload.label });
+  const rows = await querySql(`SELECT * FROM persona_interests WHERE id = ${sqlString(id)};`);
+  return rows[0] || null;
+}
+
+async function updatePersonaInterest(interestId, payload) {
+  const sets = [];
+  if (payload.label !== undefined) sets.push(`label = ${sqlString(payload.label)}`);
+  if (payload.weight !== undefined) sets.push(`weight = ${Number(payload.weight)}`);
+  if (payload.is_active !== undefined) sets.push(`is_active = ${Number(payload.is_active)}`);
+  if (!sets.length) return null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  await execSql(`UPDATE persona_interests SET ${sets.join(", ")} WHERE id = ${sqlString(interestId)};`);
+  await audit("interest.updated", "persona_interest", interestId, { updates: Object.keys(payload) });
+  const rows = await querySql(`SELECT * FROM persona_interests WHERE id = ${sqlString(interestId)};`);
+  return rows[0] || null;
+}
+
+export async function deletePersonaInterest(interestId) {
+  const rows = await querySql(`SELECT * FROM persona_interests WHERE id = ${sqlString(interestId)} LIMIT 1;`);
+  if (rows.length) {
+    await execSql(`
+      INSERT INTO persona_interest_deletions (interest_id, persona_id, label, deleted_at)
+      VALUES (${sqlString(interestId)}, ${sqlString(rows[0].persona_id)}, ${sqlString(rows[0].label)}, CURRENT_TIMESTAMP)
+      ON CONFLICT(interest_id) DO UPDATE SET
+        persona_id = excluded.persona_id,
+        label = excluded.label,
+        deleted_at = CURRENT_TIMESTAMP;
+    `);
+  }
+  await execSql(`DELETE FROM persona_interests WHERE id = ${sqlString(interestId)};`);
+  await audit("interest.deleted", "persona_interest", interestId, { personaId: rows[0]?.persona_id || null, label: rows[0]?.label || null });
+  return { deleted: true };
+}
+
+// ---- Global Tracked Entities CRUD ----
+async function getTrackedEntities() {
+  return querySql(`SELECT * FROM tracked_entities WHERE is_active = 1 ORDER BY name ASC;`);
+}
+
+async function createTrackedEntity(payload) {
+  const id = newId("ent");
+  await execSql(`
+    INSERT INTO tracked_entities (id, name, type, primary_x_handle, aliases_json, github_urls_json, website_urls_json, rss_urls_json, keywords_json, notes)
+    VALUES (
+      ${sqlString(id)}, ${sqlString(payload.name)}, ${sqlString(payload.type || "person")},
+      ${sqlString(payload.primaryXHandle || payload.primary_x_handle || null)},
+      ${sqlJson(payload.aliases || [])}, ${sqlJson(payload.githubUrls || payload.github_urls || [])},
+      ${sqlJson(payload.websiteUrls || payload.website_urls || [])},
+      ${sqlJson(payload.rssUrls || payload.rss_urls || [])},
+      ${sqlJson(payload.keywords || [])}, ${sqlString(payload.notes || null)}
+    );
+  `);
+  await audit("entity.created", "tracked_entity", id, { name: payload.name, type: payload.type });
+  const rows = await querySql(`SELECT * FROM tracked_entities WHERE id = ${sqlString(id)};`);
+  return rows[0] || null;
+}
+
+async function updateTrackedEntity(entityId, payload) {
+  const sets = [];
+  if (payload.name !== undefined) sets.push(`name = ${sqlString(payload.name)}`);
+  if (payload.type !== undefined) sets.push(`type = ${sqlString(payload.type)}`);
+  if (payload.primaryXHandle !== undefined || payload.primary_x_handle !== undefined) sets.push(`primary_x_handle = ${sqlString(payload.primaryXHandle || payload.primary_x_handle || null)}`);
+  if (payload.aliases !== undefined) sets.push(`aliases_json = ${sqlJson(payload.aliases)}`);
+  if (payload.githubUrls !== undefined || payload.github_urls !== undefined) sets.push(`github_urls_json = ${sqlJson(payload.githubUrls || payload.github_urls || [])}`);
+  if (payload.websiteUrls !== undefined || payload.website_urls !== undefined) sets.push(`website_urls_json = ${sqlJson(payload.websiteUrls || payload.website_urls || [])}`);
+  if (payload.rssUrls !== undefined || payload.rss_urls !== undefined) sets.push(`rss_urls_json = ${sqlJson(payload.rssUrls || payload.rss_urls || [])}`);
+  if (payload.keywords !== undefined) sets.push(`keywords_json = ${sqlJson(payload.keywords)}`);
+  if (payload.notes !== undefined) sets.push(`notes = ${sqlString(payload.notes)}`);
+  if (payload.is_active !== undefined) sets.push(`is_active = ${Number(payload.is_active)}`);
+  if (!sets.length) return null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  await execSql(`UPDATE tracked_entities SET ${sets.join(", ")} WHERE id = ${sqlString(entityId)};`);
+  await audit("entity.updated", "tracked_entity", entityId, { updates: Object.keys(payload) });
+  const rows = await querySql(`SELECT * FROM tracked_entities WHERE id = ${sqlString(entityId)};`);
+  return rows[0] || null;
+}
+
+async function deleteTrackedEntity(entityId) {
+  await execSql(`DELETE FROM tracked_entities WHERE id = ${sqlString(entityId)};`);
+  await audit("entity.deleted", "tracked_entity", entityId, {});
+  return { deleted: true };
+}
+
+// ---- Persona Entity Subscriptions CRUD ----
+async function createPersonaEntitySubscription(personaId, payload) {
+  const id = newId("sub");
+  await execSql(`
+    INSERT INTO persona_entity_subscriptions (id, persona_id, entity_id, priority, monitor_x, monitor_mentions, monitor_rss, monitor_crawl4ai, monitor_searchagent)
+    VALUES (
+      ${sqlString(id)}, ${sqlString(personaId)}, ${sqlString(payload.entityId || payload.entity_id)},
+      ${Number(payload.priority || 5)}, ${Number(payload.monitorX ?? payload.monitor_x ?? 1)},
+      ${Number(payload.monitorMentions ?? payload.monitor_mentions ?? 1)},
+      ${Number(payload.monitorRss ?? payload.monitor_rss ?? 1)},
+      ${Number(payload.monitorCrawl4ai ?? payload.monitor_crawl4ai ?? 1)},
+      ${Number(payload.monitorSearchagent ?? payload.monitor_searchagent ?? 1)}
+    );
+  `);
+  await audit("entity.subscription.created", "persona_entity_subscription", id, { personaId, entityId: payload.entityId || payload.entity_id });
+  return querySql(`SELECT pes.*, te.name AS entity_name, te.type AS entity_type, te.primary_x_handle FROM persona_entity_subscriptions pes JOIN tracked_entities te ON te.id = pes.entity_id WHERE pes.id = ${sqlString(id)};`);
+}
+
+async function updatePersonaEntitySubscription(subscriptionId, payload) {
+  const sets = [];
+  if (payload.priority !== undefined) sets.push(`priority = ${Number(payload.priority)}`);
+  if (payload.is_active !== undefined) sets.push(`is_active = ${Number(payload.is_active)}`);
+  if (payload.monitorX !== undefined || payload.monitor_x !== undefined) sets.push(`monitor_x = ${Number(payload.monitorX ?? payload.monitor_x ?? 1)}`);
+  if (payload.monitorMentions !== undefined || payload.monitor_mentions !== undefined) sets.push(`monitor_mentions = ${Number(payload.monitorMentions ?? payload.monitor_mentions ?? 1)}`);
+  if (payload.monitorRss !== undefined || payload.monitor_rss !== undefined) sets.push(`monitor_rss = ${Number(payload.monitorRss ?? payload.monitor_rss ?? 1)}`);
+  if (payload.monitorCrawl4ai !== undefined || payload.monitor_crawl4ai !== undefined) sets.push(`monitor_crawl4ai = ${Number(payload.monitorCrawl4ai ?? payload.monitor_crawl4ai ?? 1)}`);
+  if (payload.monitorSearchagent !== undefined || payload.monitor_searchagent !== undefined) sets.push(`monitor_searchagent = ${Number(payload.monitorSearchagent ?? payload.monitor_searchagent ?? 1)}`);
+  if (!sets.length) return null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  await execSql(`UPDATE persona_entity_subscriptions SET ${sets.join(", ")} WHERE id = ${sqlString(subscriptionId)};`);
+  await audit("entity.subscription.updated", "persona_entity_subscription", subscriptionId, { updates: Object.keys(payload) });
+  return querySql(`SELECT pes.*, te.name AS entity_name, te.type AS entity_type, te.primary_x_handle FROM persona_entity_subscriptions pes JOIN tracked_entities te ON te.id = pes.entity_id WHERE pes.id = ${sqlString(subscriptionId)};`);
+}
+
+async function deletePersonaEntitySubscription(subscriptionId) {
+  await execSql(`DELETE FROM persona_entity_subscriptions WHERE id = ${sqlString(subscriptionId)};`);
+  await audit("entity.subscription.deleted", "persona_entity_subscription", subscriptionId, {});
+  return { deleted: true };
+}
+
+// ---- Persona Crawl Targets CRUD ----
+async function createPersonaCrawlTarget(personaId, payload) {
+  const id = newId("crawl");
+  await execSql(`
+    INSERT INTO persona_crawl_targets (id, persona_id, label, url, notes, frequency)
+    VALUES (
+      ${sqlString(id)}, ${sqlString(personaId)}, ${sqlString(payload.label || null)},
+      ${sqlString(payload.url)}, ${sqlString(payload.notes || null)}, ${sqlString(payload.frequency || "daily")}
+    );
+  `);
+  await audit("crawl_target.created", "persona_crawl_target", id, { personaId, url: payload.url });
+  const rows = await querySql(`SELECT * FROM persona_crawl_targets WHERE id = ${sqlString(id)};`);
+  return rows[0] || null;
+}
+
+async function updatePersonaCrawlTarget(targetId, payload) {
+  const sets = [];
+  if (payload.label !== undefined) sets.push(`label = ${sqlString(payload.label)}`);
+  if (payload.url !== undefined) sets.push(`url = ${sqlString(payload.url)}`);
+  if (payload.notes !== undefined) sets.push(`notes = ${sqlString(payload.notes)}`);
+  if (payload.frequency !== undefined) sets.push(`frequency = ${sqlString(payload.frequency)}`);
+  if (payload.is_active !== undefined) sets.push(`is_active = ${Number(payload.is_active)}`);
+  if (!sets.length) return null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  await execSql(`UPDATE persona_crawl_targets SET ${sets.join(", ")} WHERE id = ${sqlString(targetId)};`);
+  await audit("crawl_target.updated", "persona_crawl_target", targetId, { updates: Object.keys(payload) });
+  const rows = await querySql(`SELECT * FROM persona_crawl_targets WHERE id = ${sqlString(targetId)};`);
+  return rows[0] || null;
+}
+
+async function deletePersonaCrawlTarget(targetId) {
+  await execSql(`DELETE FROM persona_crawl_targets WHERE id = ${sqlString(targetId)};`);
+  await audit("crawl_target.deleted", "persona_crawl_target", targetId, {});
+  return { deleted: true };
+}
+
+// ---- Persona RSS Topics CRUD ----
+async function createPersonaRssTopic(personaId, payload) {
+  const id = newId("rt");
+  await execSql(`
+    INSERT INTO persona_rss_topics (id, persona_id, topic, provider, weight)
+    VALUES (
+      ${sqlString(id)}, ${sqlString(personaId)}, ${sqlString(payload.topic)},
+      ${sqlString(payload.provider || "rss")}, ${Number(payload.weight || 1)}
+    );
+  `);
+  await audit("rss_topic.created", "persona_rss_topic", id, { personaId, topic: payload.topic, provider: payload.provider });
+  const rows = await querySql(`SELECT * FROM persona_rss_topics WHERE id = ${sqlString(id)};`);
+  return rows[0] || null;
+}
+
+async function updatePersonaRssTopic(topicId, payload) {
+  const sets = [];
+  if (payload.topic !== undefined) sets.push(`topic = ${sqlString(payload.topic)}`);
+  if (payload.provider !== undefined) sets.push(`provider = ${sqlString(payload.provider)}`);
+  if (payload.weight !== undefined) sets.push(`weight = ${Number(payload.weight)}`);
+  if (payload.is_active !== undefined) sets.push(`is_active = ${Number(payload.is_active)}`);
+  if (!sets.length) return null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  await execSql(`UPDATE persona_rss_topics SET ${sets.join(", ")} WHERE id = ${sqlString(topicId)};`);
+  await audit("rss_topic.updated", "persona_rss_topic", topicId, { updates: Object.keys(payload) });
+  const rows = await querySql(`SELECT * FROM persona_rss_topics WHERE id = ${sqlString(topicId)};`);
+  return rows[0] || null;
+}
+
+async function deletePersonaRssTopic(topicId) {
+  await execSql(`DELETE FROM persona_rss_topics WHERE id = ${sqlString(topicId)};`);
+  await audit("rss_topic.deleted", "persona_rss_topic", topicId, {});
+  return { deleted: true };
 }
 
 async function getSignal(signalId) {
@@ -412,7 +812,7 @@ async function updateSignal(signalId, payload, options = {}) {
   return getSignal(signalId);
 }
 
-async function updatePersona(personaId, payload) {
+export async function updatePersona(personaId, payload) {
   if (!(await getPersonaById(personaId))) return null;
   const normalized = normalizePersonaPayload(payload);
 
@@ -423,6 +823,7 @@ async function updatePersona(personaId, payload) {
       handle = COALESCE(${sqlString(normalized.handle)}, handle),
       niche = COALESCE(${sqlString(normalized.niche)}, niche),
       voice_tone = COALESCE(${sqlString(normalized.voiceTone)}, voice_tone),
+      voice_controls = COALESCE(${normalized.voiceControls ? sqlJson(normalized.voiceControls) : "NULL"}, voice_controls),
       platform_status = COALESCE(${sqlString(normalized.platformStatus)}, platform_status),
       user_edited = 1,
       user_edited_at = CURRENT_TIMESTAMP,
@@ -567,6 +968,9 @@ function normalizePersonaPayload(payload = {}) {
   if (payload.voiceTone !== undefined) {
     normalized.voiceTone = String(payload.voiceTone).trim();
     if (!normalized.voiceTone) throw validationError("voiceTone is required");
+  }
+  if (payload.voiceControls !== undefined) {
+    normalized.voiceControls = normalizeVoiceControls(payload.voiceControls, payload.id || "");
   }
   if (payload.platformStatus !== undefined) {
     normalized.platformStatus = normalizePlatformStatus(payload.platformStatus);
@@ -810,12 +1214,66 @@ async function getSignalHistory(signalId) {
   return { signal, snapshots: rows.map(mapSnapshot) };
 }
 
-async function exportHermesState() {
+function compactVoiceControls(voiceControls = {}) {
+  return {
+    humor: voiceControls.humorLevel || "medium",
+    contrarian: voiceControls.contrarianLevel || "medium",
+    explainer: voiceControls.explainerLevel || "medium",
+    punchiness: voiceControls.punchinessLevel || "medium",
+    memeNative: voiceControls.memeLevel || "low",
+    technicalDepth: voiceControls.technicalDepth || "medium",
+    emotionalIntensity: voiceControls.emotionalIntensity || "medium",
+    riskTolerance: voiceControls.riskTolerance || "medium",
+    formality: voiceControls.formalityLevel || "medium"
+  };
+}
+
+function buildWritingGuidance(persona) {
+  const interests = (persona.interests || []).filter((interest) => interest.is_active !== 0 && interest.isActive !== false).map((interest) => interest.label);
+  const watchList = (persona.trackedEntities || []).map((item) => item.entity_name || item.name).filter(Boolean);
+  const voiceControls = compactVoiceControls(persona.voiceControls);
+  const writingDo = [
+    voiceControls.explainer === "high" ? "Explain practical consequences clearly." : null,
+    voiceControls.punchiness === "high" ? "Use short, punchy sentences." : null,
+    voiceControls.humor === "high" ? "Use humor when it sharpens the point." : null,
+    voiceControls.technicalDepth === "high" ? "Include credible technical or policy detail." : null,
+    interests.length ? `Anchor posts in: ${interests.slice(0, 4).join(", ")}.` : null
+  ].filter(Boolean);
+  const writingDont = [
+    voiceControls.riskTolerance === "low" ? "Avoid unsupported claims and high-risk certainty." : null,
+    voiceControls.formality === "low" ? "Avoid stiff institutional phrasing." : null,
+    voiceControls.memeNative === "low" ? "Avoid meme-heavy language." : null,
+    "Do not collapse into generic social copy."
+  ].filter(Boolean);
+  return {
+    personaName: persona.name,
+    handle: persona.handle,
+    niche: persona.niche,
+    voiceTone: persona.voiceTone,
+    interests,
+    watchList,
+    voiceControls,
+    writingDo,
+    writingDont
+  };
+}
+
+export async function exportHermesState() {
   const [personas, recentSignals, settings] = await Promise.all([
     getPersonas({ includeInactiveQueries: true }),
     getSignals({ includeDismissed: true, limit: 50 }),
     getHermesSettings()
   ]);
+  // Include new intelligence config
+  for (const persona of personas) {
+    persona.interests = await getPersonaInterests(persona.id);
+    persona.trackedEntities = await getPersonaEntitySubscriptions(persona.id);
+    persona.crawlTargets = await getPersonaCrawlTargets(persona.id);
+    persona.rssTopics = await getPersonaRssTopics(persona.id);
+    persona.watchList = persona.trackedEntities;
+    persona.writingGuidance = buildWritingGuidance(persona);
+  }
+  const trackedEntities = await getTrackedEntities();
   await audit("hermes_export_requested", "hermes_export", "state", {
     personaCount: personas.length,
     recentSignalCount: recentSignals.length,
@@ -827,7 +1285,8 @@ async function exportHermesState() {
     personas,
     personaQueries: personas.flatMap((persona) => (persona.queries || []).map((query) => ({ ...query, personaId: persona.id }))),
     recentSignals,
-    hermesSettings: settings
+    hermesSettings: settings,
+    trackedEntities
   };
 }
 
@@ -1110,7 +1569,7 @@ async function runIngestion(payload = {}) {
           INSERT INTO signals (
             id, persona_id, topic, source, query, first_seen_at, last_seen_at,
             velocity_score, relevance_score, novelty_score, freshness_score, risk_score,
-            priority_score, source_count, cluster_id, status, suggested_angle, evidence_urls
+            priority_score, source_count, cluster_id, status, suggested_angle, editorial_metadata, evidence_urls
           )
           VALUES (
             ${sqlString(persistedSignal.id)}, ${sqlString(persistedSignal.personaId)}, ${sqlString(persistedSignal.topic)},
@@ -1118,7 +1577,7 @@ async function runIngestion(payload = {}) {
             ${sqlString(persistedSignal.lastSeenAt)}, ${persistedSignal.velocityScore}, ${persistedSignal.relevanceScore},
             ${persistedSignal.noveltyScore}, ${persistedSignal.freshnessScore}, ${persistedSignal.riskScore},
             ${persistedSignal.priorityScore}, ${persistedSignal.sourceCount}, ${sqlString(persistedSignal.clusterId)},
-            'new', ${sqlString(persistedSignal.suggestedAngle)}, ${sqlJson(persistedSignal.evidenceUrls)}
+            'new', ${sqlString(persistedSignal.suggestedAngle)}, ${sqlJson(persistedSignal.editorialMetadata || {})}, ${sqlJson(persistedSignal.evidenceUrls)}
           );
 
           INSERT INTO signal_snapshots (
@@ -1172,7 +1631,98 @@ async function runIngestion(payload = {}) {
   return { runId, runType, sourceCount: sourceSet.size, candidateCount, clusterCount, signals: createdSignals };
 }
 
-async function generateDrafts(payload) {
+function cleanTopicForDraft(topic = "") {
+  return String(topic || "")
+    .replace(/\s*\/\s*(Highlights|Posts|Posts and Replies)\s*\/\s*X\s*-?\s*Twitter\s*$/i, "")
+    .replace(/^Watch List entity\s+/i, "")
+    .replace(/\s+—\s+new opportunity detected$/i, "")
+    .trim();
+}
+
+function extractEntityFromSignal(signal = {}) {
+  const topic = cleanTopicForDraft(signal.topic || "");
+  const query = String(signal.query || "");
+  const match = query.match(/Watch List:\s*(.+?)\s*\(/i) || topic.match(/^(.+?)\s+comments|^(.+?)\s+analyzes|^(.+?)\s+shares/i);
+  return (match?.[1] || match?.[2] || match?.[3] || topic.split(" — ")[0] || "This signal").trim();
+}
+
+function buildDraftBody(persona, signal, variantIndex) {
+  const importedDrafts = Array.isArray(signal.editorialMetadata?.importedDrafts)
+    ? signal.editorialMetadata.importedDrafts
+    : [];
+  const imported = importedDrafts[variantIndex % Math.max(importedDrafts.length, 1)];
+  const importedBody = String(imported?.content || imported?.body || "").trim();
+  if (importedBody) return importedBody.slice(0, 280);
+
+  const topic = cleanTopicForDraft(signal.topic || persona.niche).replace(/[.?!]+$/g, "");
+  const entity = extractEntityFromSignal(signal);
+  const angle = String(signal.suggestedAngle || "").replace(/^Timely opportunity from monitored entity\s+/i, "").trim();
+  const controls = persona.voiceControls || normalizeVoiceControls({}, persona.id);
+  const interests = (persona.interests || []).map((interest) => interest.label).filter(Boolean).slice(0, 2);
+  const interestClause = interests.length ? ` through ${interests.join(" and ")}` : "";
+  const lead = controls.humorLevel === "high"
+    ? "The funny part is also the useful part"
+    : controls.explainerLevel === "high"
+      ? "The practical read"
+      : controls.punchinessLevel === "high"
+        ? "Watch this"
+        : "The useful signal";
+  const close = controls.contrarianLevel === "high"
+    ? "The consensus read is probably too lazy."
+    : controls.technicalDepth === "high"
+      ? "The details matter more than the announcement."
+      : controls.emotionalIntensity === "high"
+        ? "People feel this because it changes who has power."
+        : "That is the part worth watching.";
+  const variants = [
+    `${lead}${interestClause}: ${topic}. ${close}`,
+    `The uncomfortable part of ${topic}: incentives can change faster than the institutions around them. ${close}`,
+    `Practical read from ${entity}: look for the behavior underneath the announcement. ${close}`
+  ];
+  if (variantIndex === 2 && angle && angle.length < 120) {
+    return `${topic}. The useful question: ${angle.replace(/\.$/, "")}. That is where the conversation gets concrete.`.slice(0, 276);
+  }
+  return variants[variantIndex % variants.length].slice(0, 276);
+}
+
+function buildDraftEditorialMetadata(sourceSignals = [], seed = {}) {
+  const metadataSources = sourceSignals.length ? sourceSignals : [seed];
+  const primary = metadataSources.find((signal) => signal.editorialMetadata && Object.keys(signal.editorialMetadata).length)
+    || metadataSources[0]
+    || {};
+  const primaryMetadata = primary.editorialMetadata || {};
+  const warnings = metadataSources
+    .flatMap((signal) => signal.editorialMetadata?.qualityWarnings || [])
+    .filter(Boolean)
+    .map(String);
+  return {
+    ...primaryMetadata,
+    personaVoiceConfig: sourceSignals[0]?.personaVoiceConfig || seed.personaVoiceConfig || null,
+    sourceSignalTopics: metadataSources.map((signal) => signal.topic).filter(Boolean),
+    qualityWarnings: [...new Set([...(primaryMetadata.qualityWarnings || []), ...warnings])]
+  };
+}
+
+function mergeEditorialQuality(qualityChecks, editorialMetadata = {}) {
+  const editorialWarnings = Array.isArray(editorialMetadata.qualityWarnings)
+    ? editorialMetadata.qualityWarnings.filter(Boolean).map(String)
+    : [];
+  const qualityScore = Number(editorialMetadata.qualityScore);
+  const warnings = [...new Set([...(qualityChecks.warnings || []), ...editorialWarnings])];
+  const errors = [...(qualityChecks.errors || [])];
+  if (Number.isFinite(qualityScore) && qualityScore < 50) {
+    errors.push(`Editorial quality score is ${qualityScore}; draft needs revision before review.`);
+  }
+  return {
+    ...qualityChecks,
+    warnings,
+    errors,
+    editorialQualityScore: Number.isFinite(qualityScore) ? qualityScore : null,
+    passed: errors.length === 0
+  };
+}
+
+export async function generateDrafts(payload) {
   const personaId = payload.personaId;
   if (!personaId) {
     const error = new Error("personaId is required");
@@ -1208,18 +1758,28 @@ async function generateDrafts(payload) {
     const seed = draftSeeds[index % draftSeeds.length];
     const draftId = newId("draft");
     const ids = sourceSignals.map((signal) => signal.id).filter(Boolean);
-    const body = `${persona.name}: ${seed.topic}. ${seed.suggestedAngle || "A clean angle is ready for review."} (${index + 1}/${count})`;
-    const hashtags = ["#NexusDraft", `#${persona.name.replaceAll(" ", "")}`];
-    const qualityChecks = evaluateXDraftQuality(body);
+    const body = buildDraftBody(persona, seed, index);
+    const hashtags = [];
+    const editorialMetadata = {
+      ...buildDraftEditorialMetadata(sourceSignals, seed),
+      personaVoiceConfig: {
+        voiceTone: persona.voiceTone,
+        voiceControls: persona.voiceControls,
+        interests: (persona.interests || []).map((interest) => interest.label)
+      }
+    };
+    const qualityChecks = mergeEditorialQuality(evaluateXDraftQuality(body), editorialMetadata);
+    const status = qualityChecks.passed ? "needs_review" : "needs_edit";
     await execSql(`
       INSERT INTO drafts (
         id, persona_id, body, original_body, edited_body, platform,
-        media_refs, hashtags, status, quality_checks, source_signal_ids
+        media_refs, hashtags, status, quality_checks, editorial_metadata, source_signal_ids
       )
       VALUES (
         ${sqlString(draftId)}, ${sqlString(personaId)}, ${sqlString(body)},
         ${sqlString(body)}, ${sqlString(body)}, ${sqlString(payload.platform || "x")},
-        ${sqlJson([])}, ${sqlJson(hashtags)}, 'needs_review', ${sqlJson(qualityChecks)}, ${sqlJson(ids)}
+        ${sqlJson([])}, ${sqlJson(hashtags)}, ${sqlString(status)}, ${sqlJson(qualityChecks)},
+        ${sqlJson(editorialMetadata)}, ${sqlJson(ids)}
       );
     `);
     created.push({
@@ -1231,8 +1791,9 @@ async function generateDrafts(payload) {
       platform: payload.platform || "x",
       mediaRefs: [],
       hashtags,
-      status: "needs_review",
+      status,
       qualityChecks,
+      editorialMetadata,
       sourceSignalIds: ids
     });
   }
@@ -1253,13 +1814,17 @@ async function updateDraft(draftId, payload) {
     throw validationError("Use the explicit draft approve, reject, regenerate, schedule, or publish workflow endpoint for status changes.");
   }
   const nextBody = payload.editedBody ?? payload.body ?? existing.body;
-  const qualityChecks = evaluateXDraftQuality(nextBody);
+  const qualityChecks = mergeEditorialQuality(evaluateXDraftQuality(nextBody), existing.editorialMetadata || {});
+  const nextStatus = qualityChecks.passed
+    ? (existing.status === "needs_edit" ? "needs_review" : existing.status)
+    : "needs_edit";
   await execSql(`
     UPDATE drafts
     SET
       edited_body = COALESCE(${sqlString(payload.editedBody ?? payload.body)}, edited_body),
       body = COALESCE(${sqlString(payload.editedBody ?? payload.body)}, body),
       platform = COALESCE(${sqlString(payload.platform)}, platform),
+      status = ${sqlString(nextStatus)},
       review_reason = COALESCE(${sqlString(payload.reviewReason)}, review_reason),
       rejection_reason = COALESCE(${sqlString(payload.rejectionReason)}, rejection_reason),
       quality_checks = ${sqlJson(qualityChecks)},
@@ -1270,7 +1835,7 @@ async function updateDraft(draftId, payload) {
   return getDraft(draftId);
 }
 
-async function setDraftStatus(draftId, status, payload = {}) {
+export async function setDraftStatus(draftId, status, payload = {}) {
   const existing = await getDraft(draftId);
   if (!existing) return null;
   if (!["needs_review", "approved", "rejected"].includes(existing.status)) {
@@ -1326,7 +1891,7 @@ async function regenerateDraft(draftId) {
     SET edited_body = ${sqlString(body)},
         body = ${sqlString(body)},
         status = 'needs_review',
-        quality_checks = ${sqlJson(evaluateXDraftQuality(body))},
+        quality_checks = ${sqlJson(mergeEditorialQuality(evaluateXDraftQuality(body), existing.editorialMetadata || {}))},
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ${sqlString(draftId)};
   `);
@@ -1334,7 +1899,7 @@ async function regenerateDraft(draftId) {
   return getDraft(draftId);
 }
 
-async function createScheduledPost(payload) {
+export async function createScheduledPost(payload) {
   const draftId = payload.draftId || null;
   let draft = null;
   if (draftId) {
@@ -1444,7 +2009,7 @@ function normalizeMetric(value) {
   return Math.round(number);
 }
 
-async function getPublishedPosts(filters = {}) {
+export async function getPublishedPosts(filters = {}) {
   const clauses = ["1 = 1"];
   if (filters.personaId) clauses.push(`persona_id = ${sqlString(filters.personaId)}`);
   if (filters.scheduledPostId) clauses.push(`scheduled_post_id = ${sqlString(filters.scheduledPostId)}`);
@@ -1550,7 +2115,7 @@ async function createPublishedPost(payload = {}) {
   return getPublishedPost(post.id);
 }
 
-async function markScheduledPostPublished(postId, payload = {}) {
+export async function markScheduledPostPublished(postId, payload = {}) {
   return createPublishedPost({ ...payload, scheduledPostId: postId });
 }
 
@@ -1616,7 +2181,17 @@ function normalizeChoiceOutcome(value) {
   throw validationError("outcome must be recorded, scheduled, published, or skipped.");
 }
 
-async function createOperatorDraftChoice(payload = {}) {
+function finalTextForOperatorChoice(payload = {}, existingChoice = null) {
+  const selectedVariant = normalizeSelectedVariant(payload.selectedVariant || existingChoice?.selectedVariant || "A");
+  const explicitText = String(payload.editedFinalText || "").trim();
+  if (explicitText) return explicitText;
+  if (existingChoice?.editedFinalText) return existingChoice.editedFinalText;
+  if (selectedVariant === "B" && payload.draftB) return String(payload.draftB).trim();
+  if (selectedVariant === "neither") return String(payload.draftA || existingChoice?.draftA || "Operator skipped this draft.").trim();
+  return String(payload.draftA || existingChoice?.draftA || "").trim();
+}
+
+export async function createOperatorDraftChoice(payload = {}) {
   const personaId = payload.personaId;
   if (!personaId) throw validationError("personaId is required.");
   if (!(await getPersonaById(personaId))) {
@@ -1645,17 +2220,20 @@ async function createOperatorDraftChoice(payload = {}) {
 
   const draftA = String(payload.draftA || "").trim();
   const draftB = payload.draftB === undefined || payload.draftB === null ? null : String(payload.draftB).trim();
-  const editedFinalText = String(payload.editedFinalText || "").trim();
+  const outcome = normalizeChoiceOutcome(payload.outcome);
+  const isSkipOutcome = outcome === "skipped";
   if (!draftA) throw validationError("draftA is required.");
-  if (!editedFinalText) throw validationError("editedFinalText is required.");
   const selectedVariant = normalizeSelectedVariant(payload.selectedVariant);
+  const editedFinalText = isSkipOutcome ? "skipped" : finalTextForOperatorChoice({ ...payload, draftA, draftB, selectedVariant });
+  if (!isSkipOutcome && !editedFinalText) throw validationError("editedFinalText or draft text is required.");
   if (selectedVariant === "B" && !draftB) throw validationError("draftB is required when selectedVariant is B.");
-  const qualityChecks = evaluateXDraftQuality(editedFinalText);
-  if (!qualityChecks.passed) {
-    throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  if (!isSkipOutcome) {
+    const qualityChecks = evaluateXDraftQuality(editedFinalText);
+    if (!qualityChecks.passed) {
+      throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+    }
   }
 
-  const outcome = normalizeChoiceOutcome(payload.outcome);
   const id = newId("choice");
   await execSql(`
     INSERT INTO operator_draft_choices (
@@ -1680,17 +2258,19 @@ async function createOperatorDraftChoice(payload = {}) {
   return getOperatorDraftChoice(id);
 }
 
-async function updateOperatorDraftChoiceOutcome(choiceId, payload = {}) {
+export async function updateOperatorDraftChoiceOutcome(choiceId, payload = {}) {
   const existing = await getOperatorDraftChoice(choiceId);
   if (!existing) return null;
   const outcome = normalizeChoiceOutcome(payload.outcome || existing.outcome);
-  const editedFinalText = payload.editedFinalText === undefined
-    ? existing.editedFinalText
-    : String(payload.editedFinalText || "").trim();
-  if (!editedFinalText) throw validationError("editedFinalText is required.");
-  const qualityChecks = evaluateXDraftQuality(editedFinalText);
-  if (!qualityChecks.passed) {
-    throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+  const editedFinalText = outcome === "skipped"
+    ? (existing.editedFinalText || "skipped")
+    : finalTextForOperatorChoice(payload, existing);
+  if (!editedFinalText) throw validationError("editedFinalText or draft text is required.");
+  if (outcome !== "skipped") {
+    const qualityChecks = evaluateXDraftQuality(editedFinalText);
+    if (!qualityChecks.passed) {
+      throw validationError(`Choice final text failed X quality checks: ${qualityChecks.errors.join(" ")}`);
+    }
   }
   await execSql(`
     UPDATE operator_draft_choices
@@ -1715,17 +2295,94 @@ function countByPersona(items, personaId) {
   return items.filter((item) => item.personaId === personaId).length;
 }
 
-async function getOperatorQueue() {
+async function createNotification({ personaId, signalId, topic, draftCount = 1, priorityScore = 0, runType = "" }) {
+  const existing = await querySql(`
+    SELECT id FROM notifications
+    WHERE persona_id = ${sqlString(personaId)}
+      AND signal_id = ${sqlString(signalId || "")}
+      AND read_at IS NULL
+    LIMIT 1;
+  `);
+  if (existing.length) return existing[0];
+  const id = newId("notif");
+  const now = new Date().toISOString();
+  await execSql(`
+    INSERT INTO notifications (id, persona_id, entity_name, topic, signal_id, draft_count, priority_score, confidence, run_type, is_test, created_at)
+    VALUES (${sqlString(id)}, ${sqlString(personaId)}, ${sqlString("")}, ${sqlString(topic)},
+      ${sqlString(signalId || "")}, ${draftCount}, ${priorityScore}, 0.85,
+      ${sqlString(runType)}, 0, ${sqlString(now)});
+  `);
+  return { id };
+}
+
+async function getUnreadNotificationCount() {
+  const rows = await querySql("SELECT COUNT(*) AS count FROM notifications WHERE read_at IS NULL;");
+  return Number(rows[0]?.count || 0);
+}
+
+async function getNotifications(filters = {}) {
+  const clauses = ["1 = 1"];
+  if (filters.unreadOnly) clauses.push("read_at IS NULL");
+  const limit = Math.max(1, Math.min(50, Number(filters.limit || 20)));
+  const rows = await querySql(`
+    SELECT n.*, p.name AS persona_name
+    FROM notifications n
+    LEFT JOIN personas p ON p.id = n.persona_id
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY n.created_at DESC
+    LIMIT ${limit};
+  `);
+  return rows.map((r) => ({
+    id: r.id,
+    personaId: r.persona_id,
+    personaName: r.persona_name || "",
+    entityName: r.entity_name || "",
+    topic: r.topic,
+    signalId: r.signal_id,
+    draftCount: r.draft_count,
+    priorityScore: r.priority_score,
+    confidence: r.confidence,
+    runType: r.run_type,
+    isTest: Boolean(r.is_test),
+    readAt: r.read_at,
+    createdAt: r.created_at
+  }));
+}
+
+async function markNotificationRead(notificationId) {
+  await execSql(`UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE id = ${sqlString(notificationId)};`);
+}
+
+export async function getOperatorQueue() {
   const [personas, signals, alerts, drafts, scheduledRows, published, choices] = await Promise.all([
     getPersonas({ includeInactiveQueries: true }),
-    getSignals({ includeDismissed: false, limit: 200 }),
+    getSignals({ includeDismissed: false, limit: 200, excludeTestMode: true }),
     getVelocityAlerts({}),
     querySql("SELECT * FROM drafts ORDER BY updated_at DESC, created_at DESC LIMIT 100;"),
     querySql("SELECT * FROM scheduled_posts ORDER BY scheduled_at ASC LIMIT 100;"),
     getPublishedPosts({ limit: 100 }),
     getOperatorDraftChoices({ limit: 100 })
   ]);
-  const allDrafts = drafts.map(mapDraft);
+  const linkedSignalIds = [...new Set(drafts.flatMap((row) => parseJsonField(row.source_signal_ids, [])))].filter(Boolean);
+  const linkedNoiseRows = linkedSignalIds.length
+    ? await querySql(`
+      SELECT id
+      FROM signals
+      WHERE id IN (${linkedSignalIds.map(sqlString).join(",")})
+        AND NOT (${productionSignalSqlFilter()});
+    `)
+    : [];
+  const noisyLinkedSignalIds = new Set(linkedNoiseRows.map((row) => row.id));
+  const allDrafts = drafts
+    .map(mapDraft)
+    .filter((draft) => {
+      const sourceIds = draft.sourceSignalIds || [];
+      const text = lowerText([draft.body, draft.originalBody, draft.editedBody, sourceIds.join(" ")].join(" "));
+      if (OPERATOR_NOISE_PATTERNS.some((pattern) => text.includes(pattern))) return false;
+      if (draft.qualityChecks?.passed === false) return false;
+      if (sourceIds.some((id) => noisyLinkedSignalIds.has(id))) return false;
+      return true;
+    });
   const scheduled = scheduledRows.map(mapScheduledPost);
   const queue = personas.map((persona) => {
     const personaSignals = signals.filter((signal) => signal.personaId === persona.id && !["used", "dismissed", "archived"].includes(signal.status)).slice(0, 8);
@@ -1897,6 +2554,26 @@ async function routeApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/notifications") {
+    sendJson(res, 200, await getNotifications({
+      unreadOnly: url.searchParams.get("unreadOnly") === "true",
+      limit: Number(url.searchParams.get("limit") || 20)
+    }));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/notifications/unread-count") {
+    sendJson(res, 200, { count: await getUnreadNotificationCount() });
+    return;
+  }
+
+  const notificationReadMatch = url.pathname.match(/^\/api\/notifications\/([^/]+)\/read$/);
+  if (req.method === "POST" && notificationReadMatch) {
+    await markNotificationRead(notificationReadMatch[1]);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/operator/queue") {
     sendJson(res, 200, await getOperatorQueue());
     return;
@@ -1948,7 +2625,55 @@ async function routeApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/hermes/import") {
-    sendJson(res, 201, await importHermesPayload(await readJson(req)));
+    const body = await readJson(req);
+    const result = await importHermesPayload(body);
+    const isTestMode = body.testMode === true || body.runType === "validation_ping" || body.runType === "trial_push";
+    result.draftsGenerated = 0;
+    result.draftGenerationErrors = [];
+    if (!isTestMode && result.importedSignalIds.length > 0) {
+      const generatedDrafts = [];
+      const personaSignalMap = new Map();
+      for (const persona of (body.personas || [])) {
+        if (persona.personaId) personaSignalMap.set(persona.personaId, []);
+      }
+      for (const signalId of result.importedSignalIds) {
+        const rows = await querySql(`SELECT * FROM signals WHERE id = ${sqlString(signalId)};`);
+        if (rows.length) {
+          const signal = mapSignal(rows[0]);
+          if (personaSignalMap.has(signal.personaId)) personaSignalMap.get(signal.personaId).push(signal);
+        }
+      }
+      for (const [personaId, signals] of personaSignalMap) {
+        if (!signals.length) continue;
+        signals.sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+        const topSignalIds = signals.slice(0, 2).map((s) => s.id);
+        try {
+          const drafts = await generateDrafts({ personaId, signalIds: topSignalIds, count: 3 });
+          generatedDrafts.push(...drafts);
+          await createNotification({
+            personaId,
+            signalId: topSignalIds[0],
+            topic: signals[0].topic || signals[0].suggestedAngle || "Opportunity",
+            draftCount: drafts.length,
+            priorityScore: signals[0].priorityScore || 0,
+            runType: body.runType
+          });
+        } catch (error) {
+          result.draftGenerationErrors.push({
+            personaId,
+            signalIds: topSignalIds,
+            error: error.message
+          });
+          await audit("draft.generation_failed", "persona", personaId, {
+            signalIds: topSignalIds,
+            error: error.message,
+            runId: result.runId
+          });
+        }
+      }
+      result.draftsGenerated = generatedDrafts.length;
+    }
+    sendJson(res, 201, result);
     return;
   }
 
@@ -2002,7 +2727,7 @@ async function routeApi(req, res, url) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/drafts") {
-    const rows = await querySql("SELECT * FROM drafts ORDER BY created_at DESC LIMIT 50;");
+    const rows = await querySql("SELECT * FROM drafts ORDER BY updated_at DESC, created_at DESC LIMIT 200;");
     sendJson(res, 200, rows.map(mapDraft));
     return;
   }
@@ -2127,6 +2852,115 @@ async function routeApi(req, res, url) {
     const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
     const rows = await querySql(`SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ${limit};`);
     sendJson(res, 200, rows.map(mapAudit));
+    return;
+  }
+
+  // ---- Tracked Entities ----
+  if (req.method === "GET" && url.pathname === "/api/entities") {
+    sendJson(res, 200, await getTrackedEntities());
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/entities") {
+    sendJson(res, 201, await createTrackedEntity(await readJson(req)));
+    return;
+  }
+
+  const entityPatchMatch = url.pathname.match(/^\/api\/entities\/([^/]+)$/);
+  if (req.method === "PATCH" && entityPatchMatch) {
+    const updated = await updateTrackedEntity(decodePathPart(entityPatchMatch[1]), await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Entity not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const entityDeleteMatch = url.pathname.match(/^\/api\/entities\/([^/]+)$/);
+  if (req.method === "DELETE" && entityDeleteMatch) {
+    sendJson(res, 200, await deleteTrackedEntity(decodePathPart(entityDeleteMatch[1])));
+    return;
+  }
+
+  // ---- Persona Interests ----
+  const personaInterestCreateMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/interests$/);
+  if (req.method === "POST" && personaInterestCreateMatch) {
+    sendJson(res, 201, await createPersonaInterest(decodePathPart(personaInterestCreateMatch[1]), await readJson(req)));
+    return;
+  }
+
+  const personaInterestPatchMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/interests\/([^/]+)$/);
+  if (req.method === "PATCH" && personaInterestPatchMatch) {
+    const updated = await updatePersonaInterest(decodePathPart(personaInterestPatchMatch[2]), await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Interest not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const personaInterestDeleteMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/interests\/([^/]+)$/);
+  if (req.method === "DELETE" && personaInterestDeleteMatch) {
+    sendJson(res, 200, await deletePersonaInterest(decodePathPart(personaInterestDeleteMatch[2])));
+    return;
+  }
+
+  // ---- Persona Entity Subscriptions ----
+  const personaEntityCreateMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/entities$/);
+  if (req.method === "POST" && personaEntityCreateMatch) {
+    sendJson(res, 201, await createPersonaEntitySubscription(decodePathPart(personaEntityCreateMatch[1]), await readJson(req)));
+    return;
+  }
+
+  const personaEntityPatchMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/entities\/([^/]+)$/);
+  if (req.method === "PATCH" && personaEntityPatchMatch) {
+    const updated = await updatePersonaEntitySubscription(decodePathPart(personaEntityPatchMatch[2]), await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Entity subscription not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const personaEntityDeleteMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/entities\/([^/]+)$/);
+  if (req.method === "DELETE" && personaEntityDeleteMatch) {
+    sendJson(res, 200, await deletePersonaEntitySubscription(decodePathPart(personaEntityDeleteMatch[2])));
+    return;
+  }
+
+  // ---- Persona Crawl Targets ----
+  const crawlTargetCreateMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/crawl-targets$/);
+  if (req.method === "POST" && crawlTargetCreateMatch) {
+    sendJson(res, 201, await createPersonaCrawlTarget(decodePathPart(crawlTargetCreateMatch[1]), await readJson(req)));
+    return;
+  }
+
+  const crawlTargetPatchMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/crawl-targets\/([^/]+)$/);
+  if (req.method === "PATCH" && crawlTargetPatchMatch) {
+    const updated = await updatePersonaCrawlTarget(decodePathPart(crawlTargetPatchMatch[2]), await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "Crawl target not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const crawlTargetDeleteMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/crawl-targets\/([^/]+)$/);
+  if (req.method === "DELETE" && crawlTargetDeleteMatch) {
+    sendJson(res, 200, await deletePersonaCrawlTarget(decodePathPart(crawlTargetDeleteMatch[2])));
+    return;
+  }
+
+  // ---- Persona RSS Topics ----
+  const rssTopicCreateMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/rss-topics$/);
+  if (req.method === "POST" && rssTopicCreateMatch) {
+    sendJson(res, 201, await createPersonaRssTopic(decodePathPart(rssTopicCreateMatch[1]), await readJson(req)));
+    return;
+  }
+
+  const rssTopicPatchMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/rss-topics\/([^/]+)$/);
+  if (req.method === "PATCH" && rssTopicPatchMatch) {
+    const updated = await updatePersonaRssTopic(decodePathPart(rssTopicPatchMatch[2]), await readJson(req));
+    if (!updated) sendJson(res, 404, { error: "RSS topic not found" });
+    else sendJson(res, 200, updated);
+    return;
+  }
+
+  const rssTopicDeleteMatch = url.pathname.match(/^\/api\/personas\/([^/]+)\/rss-topics\/([^/]+)$/);
+  if (req.method === "DELETE" && rssTopicDeleteMatch) {
+    sendJson(res, 200, await deletePersonaRssTopic(decodePathPart(rssTopicDeleteMatch[2])));
     return;
   }
 

@@ -25,7 +25,7 @@ Hermes morning digest / velocity scan / midday brief / evening scan
   -> schedule preparation
 ```
 
-Known limitations: this repo does not integrate the X API yet, does not scrape pages, does not publish posts externally, does not add authentication, does not call external LLMs from the app, and does not add Instagram, YouTube, or TikTok adapters. Hermes cron/operator commands are documented for local integration, but no hosted scheduler is bundled into the app.
+Known limitations: this repo does not scrape pages, does not publish posts externally, does not add authentication, does not call external LLMs from the app, and does not add Instagram, YouTube, or TikTok adapters. Hermes cron/operator commands are documented for local integration, but no hosted scheduler is bundled into the app. The X provider (src/providers/xProvider.js) implements X API v2 retrieval via Bearer Token — set X_BEARER_TOKEN in the environment to enable live X post/mention monitoring for Watch List entities.
 
 Phase 4A adds a real round-trip validation path:
 
@@ -471,7 +471,7 @@ Archived signals remain in SQLite and leave the main review flow.
 
 ## Phase 5 Local Operator Loop
 
-Phase 5 keeps Persona Command Center local-first for X account management. It does not require X credentials, does not call the X API, and does not publish externally. Operators can review signals, generate drafts, approve or reject drafts with reasons, prepare scheduled posts, manually mark a prepared post as published after posting outside the app, and enter performance numbers by hand.
+Phase 5 keeps Persona Command Center local-first for X account management. It does not publish externally. Operators can review signals, generate drafts, approve or reject drafts with reasons, prepare scheduled posts, manually mark a prepared post as published after posting outside the app, and enter performance numbers by hand. X API retrieval is available via Bearer Token (set X_BEARER_TOKEN env var) — when configured, Watch List entities are monitored via live X API v2 calls (recent tweets and mentions). Without the token, the X provider returns empty gracefully and falls through to RSS/news providers.
 
 Local workflow:
 

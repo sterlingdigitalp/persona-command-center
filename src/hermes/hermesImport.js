@@ -26,6 +26,7 @@ function mapSignal(row) {
     priorityScore: row.priority_score || 0,
     status: row.status,
     validationId: row.validation_id,
+    editorialMetadata: parseJsonField(row.editorial_metadata, {}),
     evidenceUrls: parseJsonField(row.evidence_urls, [])
   };
 }
@@ -89,7 +90,8 @@ async function insertSignal(runId, signal) {
       velocity_score, relevance_score, novelty_score, freshness_score, risk_score,
       priority_score, source_count, cluster_id, generated_by, source_provider,
       hermes_run_type, hermes_provider, hermes_model, hermes_endpoint,
-      hermes_job_name, validation_id, status, suggested_angle, evidence_urls
+      hermes_job_name, validation_id, status, suggested_angle, evidence_urls,
+      editorial_metadata, test_mode
     )
     VALUES (
       ${sqlString(signalId)}, ${sqlString(signal.personaId)}, ${sqlString(signal.topic)},
@@ -100,7 +102,9 @@ async function insertSignal(runId, signal) {
       'Hermes', ${sqlString(signal.sourceProvider)}, ${sqlString(signal.hermesRunType)},
       ${sqlString(signal.hermesProvider)}, ${sqlString(signal.hermesModel)}, ${sqlString(signal.hermesEndpoint)},
       ${sqlString(signal.hermesJobName)}, ${sqlString(signal.validationId)},
-      'new', ${sqlString(signal.suggestedAngle)}, ${sqlJson(signal.evidenceUrls)}
+      'new', ${sqlString(signal.suggestedAngle)}, ${sqlJson(signal.evidenceUrls)},
+      ${sqlJson(signal.editorialMetadata || {})},
+      ${signal.testMode ? 1 : 0}
     );
   `);
   await snapshotSignal(signalId, runId, signal, signal.rawData);
@@ -127,7 +131,8 @@ async function updateSignal(runId, existing, signal) {
       hermes_endpoint = ${sqlString(signal.hermesEndpoint)},
       hermes_job_name = ${sqlString(signal.hermesJobName)},
       validation_id = ${sqlString(signal.validationId)},
-      suggested_angle = ${sqlString(signal.suggestedAngle)}
+      suggested_angle = ${sqlString(signal.suggestedAngle)},
+      editorial_metadata = ${sqlJson(signal.editorialMetadata || {})}
     WHERE id = ${sqlString(existing.id)};
   `);
   await snapshotSignal(existing.id, runId, signal, { ...signal.rawData, duplicateOf: existing.id });
@@ -166,9 +171,10 @@ export async function importHermesPayload(payload) {
   const normalizedSignals = [];
 
   try {
+      const isTestMode = payload.testMode === true;
     for (const persona of payload.personas) {
       for (const rawSignal of persona.signals) {
-        const signal = normalizeHermesSignal(rawSignal, persona.personaId, payload.runType, payload.generatedAt, {
+        const signal = normalizeHermesSignal({ ...rawSignal, testMode: isTestMode }, persona.personaId, payload.runType, payload.generatedAt, {
           provider: attribution.provider,
           model: attribution.model,
           endpoint: attribution.endpoint,

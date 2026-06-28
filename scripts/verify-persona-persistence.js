@@ -120,8 +120,8 @@ try {
       const restored = await api(`/api/personas/${persona.id}`);
       addCheck(
         "persona restored",
-        restored.name === original.name && restored.handle === original.handle && restored.platformStatus === original.platformStatus,
-        `${restored.name} ${restored.platformStatus}`
+        restored.name === original.name && restored.handle === original.handle && restored.niche === original.niche && restored.platformStatus === original.platformStatus,
+        `${restored.name} ${restored.platformStatus} niche:${restored.niche === original.niche ? "OK" : "MISMATCH"}`
       );
     } catch (error) {
       report.pass = false;

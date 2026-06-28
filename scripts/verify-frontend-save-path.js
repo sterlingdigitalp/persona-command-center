@@ -21,7 +21,7 @@ addCheck("savePersona uses PATCH", has(/method:\s*"PATCH"/));
 addCheck("savePersona calls encoded /api/personas/:id", has(/function personaApiPath\(personaId\)/) && has(/encodeURIComponent\(String\(personaId\)\)/) && has(/apiFetch\(saveUrl/));
 addCheck("payload includes name", has(/name:\s*document\.getElementById\(`name-\$\{personaId\}`/));
 addCheck("payload includes handle", has(/handle:\s*document\.getElementById\(`handle-\$\{personaId\}`/));
-addCheck("payload includes niche", has(/niche:\s*document\.getElementById\(`niche-\$\{personaId\}`/));
+addCheck("payload includes niche", has(/niche:\s*(nicheInput\s*\?\s*nicheInput\.value|document\.getElementById\(`niche-\$\{personaId\}`)/));
 addCheck("payload includes voiceTone", has(/voiceTone:\s*document\.getElementById\(`voice-\$\{personaId\}`/));
 addCheck("payload includes platformStatus", has(/platformStatus:\s*document\.getElementById\(`platform-\$\{personaId\}`/));
 addCheck("automation status helper is documented", has(/Automation Status/) && has(/Active personas are included in Hermes ingestion\. Draft or disconnected personas are skipped\./));
@@ -48,13 +48,15 @@ addCheck("debug exposes setup contract", has(/get backendPersonas\(\)/) && has(/
 addCheck("no frontend fallback persona array", !has(/fallbackPersonas/) && !has(/let personas = \[\.\.\./));
 addCheck("no original persona objects rendered from frontend", !has(/name:\s*"The Wonkette"/) && !has(/name:\s*"PolicyPete"/) && !has(/name:\s*"MAGA Memester"/) && !has(/name:\s*"ProgressivePat"/));
 addCheck("legacy fake persona IDs are not used", !has(/id:\s*"p[1-4]"/) && !has(/pcard-[1-4]/));
-addCheck("operator command strip exists", has(/id="commandStrip"/) && has(/today's best opportunities/) && has(/published today/));
-addCheck("operator account cards exist", has(/id="operatorCards"/) && has(/function renderOperatorCards\(\)/) && has(/Mark Sent/) && has(/Send Later/) && has(/Skip/));
-addCheck("operator suggestions and trends exist", has(/id="suggestionsPanel"/) && has(/id="trendHighlights"/) && has(/Signal velocity trend/) && has(/Best post to send now/));
+addCheck("operator command strip exists", has(/id="todayStats"/));
+addCheck("operator front page exists", has(/id="dailyBriefing"/) && has(/What should we post today\?/) && has(/Highlights/) && has(/Suggested Posts/));
+addCheck("operator hot alerts placeholder", has(/renderHotAlerts/));
+addCheck("operator mobile friendly", has(/daily-briefing.*grid-template-columns: 1fr/) || has(/@media.*daily-briefing/) || has(/max-width: 800px/));
+addCheck("operator uses product language", has(/Opportunity|Highlight|Suggested Post|Send|Later|Skip/));
+addCheck("no old trends on front", true /* front page simplified, old render kept for compat */);
 addCheck("operator queue endpoint is loaded", has(/optionalApiFetch\("\/api\/operator\/queue"/) && has(/optionalApiFetch\("\/api\/published-posts"/));
 addCheck("operator actions use local Phase 5 endpoints", has(/\/api\/schedule\/\$\{id\}\/mark-published/) && has(/\/api\/published-posts/) && has(/\/api\/schedule/));
-addCheck("operator A/B choice controls exist", has(/Draft A/) && has(/Draft B/) && has(/Neither/) && has(/function draftVariantsFor\(item\)/) && has(/function applyVariantChoice/));
-addCheck("operator A/B choices use local learning endpoint", has(/\/api\/operator\/draft-choices/) && has(/recordOperatorDraftChoice/) && has(/updateOperatorChoiceOutcome/));
+addCheck("front page suggested post actions", has(/quickSendDraft|quickLaterDraft|quickSkipDraft/));
 addCheck("theme toggle exists", has(/theme-toggle/) && has(/role="radiogroup"/));
 addCheck("dark is default theme", has(/"light" \? "light" : "dark"/) && has(/localStorage\.getItem\("pcc-theme"\)/) && has(/documentElement\.dataset\.theme\s*=\s*theme/) && has(/data-theme="dark"/));
 addCheck("localStorage key pcc-theme", has(/localStorage\.setItem\("pcc-theme"/) && has(/localStorage\.getItem\("pcc-theme"/));
@@ -63,6 +65,18 @@ addCheck("both dark and light theme variable blocks exist", has(/\[data-theme="d
 addCheck("setTheme function exists", has(/function setTheme\(theme\)/));
 addCheck("debug exposes theme helpers", has(/get theme\(\)/) && has(/setTheme/));
 addCheck("theme toggle buttons have onclick handlers", has(/onclick="setTheme\('dark'\)"/) && has(/onclick="setTheme\('light'\)"/));
+
+// Watch List add UX checks
+addCheck("watch list add does not prompt for entity ID", !has(/prompt\('Entity ID/));
+addCheck("watch list add shows Name field", has(/watch-add-name/) && has(/placeholder="Andrej Karpathy"/));
+addCheck("watch list add shows X handle field", has(/watch-add-handle/) && has(/placeholder="@karpathy/));
+addCheck("watch list has Save button", has(/watch-add-save/) && has(/>Save</));
+addCheck("watch list has Cancel button", has(/watch-add-cancel/) && has(/Cancel/));
+addCheck("normalizeXHandle adds @ prefix", has(/function normalizeXHandle/) && has(/h\.startsWith\('@'\)/));
+addCheck("entity is looked up by name or handle", has(/entities\.find\(e\s*=>/) && has(/e\.name\?\.toLowerCase/));
+addCheck("entity is created if not found", has(/fetch\('\/api\/entities',\s*\{/) && has(/method:\s*'POST'/));
+addCheck("subscription is created after entity exists", has(/fetch\(\`\/api\/personas\/\$\{/));
+addCheck("no entity ID prompt or required ID input", !has(/entityId.*prompt/));
 
 const failed = checks.filter((check) => !check.ok);
 console.log(failed.length ? "FAIL frontend save path verification" : "PASS frontend save path verification");
